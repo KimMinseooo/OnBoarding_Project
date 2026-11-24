@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>온보딩 과제 생성기 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{fontFamily:{sans:['"Noto Sans KR"','system-ui','sans-serif'],mono:['"JetBrains Mono"','ui-monospace','monospace']},colors:{ink:'#16181d',cobalt:'#2450e6',flame:'#f0641e'}}}}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+<style>
+/* VOICE: 사내 개발 도구 — 차분하고 정확한, 설계 문서 같은 톤
+   IDEA: 개발 명세서 한 장 + 그 옆에 놓인 화면 설계도(블루프린트)
+   PICTURE: 실제 창처럼 그린 대상 프레임워크의 SVG 화면, 클릭 가능한 그리드
+   COLOUR and TYPE: 흰 바탕, 잉크 #16181d, 코발트 #2450e6, 주석용 플레임 #f0641e / Noto Sans KR + JetBrains Mono(코드명)
+   LAYOUT: 상단 컨트롤 바, 아래 명세서 5 : 예시 화면 7 분할, 모바일은 세로 스택 */
+:root{color-scheme:light}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:#fff;color:#16181d;overflow-x:clip}
+.blueprint{background-color:#f4f6fb;background-image:linear-gradient(#e3e8f4 1px,transparent 1px),linear-gradient(90deg,#e3e8f4 1px,transparent 1px);background-size:20px 20px}
+@keyframes bar{from{width:4%}to{width:100%}}
+.progress{animation:bar 1.4s ease-out forwards}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.rise{animation:rise .35s ease-out}
+@media (prefers-reduced-motion:reduce){.progress,.rise,.animate-spin{animation:none!important}}
+select{-webkit-appearance:none;appearance:none}
+</style>
+</head>
+<body>
+<div id="root"><p style="padding:24px;font-family:sans-serif">화면을 불러오는 중…</p></div>
+<script>
+{
+const {useState,useRef,useEffect}=React;
+const html=htm.bind(React.createElement);
+const FONT="'Segoe UI','Malgun Gothic','Noto Sans KR',sans-serif";
+
+/* ================= 과제 아이디어 데이터 ================= */
+const OPN={R:'조회 / 검색',C:'신규 등록',U:'수정',D:'삭제'};
+const DELIVER='GitHub 저장소 + README + 시연 영상(3분)';
+
+/* 중급용 업무 데이터 */
+const DOM={
+asset:{title:'사내 IT 비품 관리',team:'총무팀',app:'사내 비품 관리 시스템',en:'Asset',slug:'assets',newLabel:'비품 등록',nav:['비품 목록','분류 관리','통계'],
+ scenario:'총무팀은 노트북·모니터 같은 IT 비품을 엑셀로 관리하다 중복 등록과 이력 누락 문제를 겪고 있습니다. 비품을 한곳에서 검색·등록·수정·삭제할 수 있어야 합니다.',
+ search:{combo:'분류',text:'자산명',range:'구매일',rv:['2024-01-01','2024-12-31']},
+ cols:[{h:'자산번호',w:100},{h:'자산명',w:160},{h:'분류',w:80},{h:'담당부서',w:100},{h:'구매일',w:95},{h:'상태',w:70}],
+ rows:[['AS-2024-001','LG 그램 16','노트북','경영지원팀','2024-02-14','사용중'],['AS-2024-002','Dell U2723QE','모니터','개발1팀','2024-03-02','사용중'],['AS-2024-003','맥북 프로 14','노트북','디자인팀','2024-03-18','수리중'],['AS-2024-004','로지텍 MX Keys','주변기기','개발2팀','2024-04-05','재고'],['AS-2024-005','HP 레이저젯 M404','프린터','총무팀','2024-05-21','사용중'],['AS-2024-006','삼성 오디세이 G5','모니터','개발1팀','2024-06-10','재고'],['AS-2024-007','아이패드 에어','태블릿','영업팀','2024-07-01','폐기']],
+ statusCol:5,status:{'사용중':'#2b8a3e','수리중':'#d9480f','재고':'#1c7ed6','폐기':'#868e96'},
+ form:[{l:'자산번호',c:0,t:'ro'},{l:'자산명',c:1,t:'text',req:1},{l:'분류',c:2,t:'combo',req:1},{l:'담당부서',c:3,t:'combo'},{l:'구매일',c:4,t:'date'},{l:'상태',c:5,t:'combo'}],total:24,
+ crud:{R:['분류·자산명·구매일 기간으로 검색, 조건이 없으면 전체 표시'],C:['자산번호는 AS-연도-순번으로 자동 채번'],U:['자산번호는 수정 불가'],D:['삭제 후 선택 해제와 폼 초기화']},
+ mid:{R:null,C:'같은 자산명 중복 등록 시 경고',U:'수정일시·수정자 자동 기록',D:'"사용중" 자산은 "폐기" 상태로만 변경'},
+ exc:['구매일이 오늘보다 뒤면 오류','검색 시작일이 종료일보다 늦으면 검색 차단'],excMid:['"폐기" 상태 자산은 수정 잠금']},
+vendor:{title:'협력업체(거래처) 관리',team:'구매팀',app:'협력업체 관리',en:'Vendor',slug:'vendors',newLabel:'거래처 등록',nav:['거래처','거래 이력','설정'],
+ scenario:'구매팀은 협력업체 연락처와 거래 이력을 부서마다 따로 관리해 최신 정보가 맞지 않는 일이 잦습니다. 거래처 정보와 거래 이력을 한 화면에서 보고 관리할 수 있어야 합니다.',
+ cols:[{h:'거래처코드',w:80},{h:'거래처명',w:130},{h:'대표자',w:70},{h:'업종',w:75},{h:'연락처',w:105},{h:'상태',w:70}],
+ rows:[['V-1001','(주)한빛정밀','김도윤','제조','02-551-3021','거래중'],['V-1002','대성물류','이서연','물류','031-778-4410','거래중'],['V-1003','그린테크솔루션','박지훈','IT서비스','02-3142-9087','거래중'],['V-1004','미래포장산업','최민아','제조','032-861-2205','휴면'],['V-1005','한결회계법인','정하늘','서비스','02-786-1150','거래중'],['V-1006','동서전자부품','윤태경','유통','051-412-7733','중단'],['V-1007','세움건설','강예린','건설','02-2058-6614','거래중']],
+ statusCol:5,status:{'거래중':'#2b8a3e','휴면':'#868e96','중단':'#e03131'},
+ form:[{l:'거래처코드',c:0,t:'ro'},{l:'거래처명',c:1,t:'text',req:1},{l:'대표자',c:2,t:'text',req:1},{l:'업종',c:3,t:'combo'},{l:'연락처',c:4,t:'text'},{l:'상태',c:5,t:'combo'}],total:37,
+ crud:{R:['거래처명·업종으로 목록 검색, 부분 일치 지원'],C:['거래처코드는 V-4자리로 자동 생성'],U:['거래처코드는 수정 불가'],D:['삭제 전 확인 후 결과 메시지 표시']},
+ mid:{R:'거래 이력은 선택한 거래처 기준으로 따로 조회',C:'사업자번호 중복 검사',U:'변경 내용을 이력 테이블에 기록',D:'거래 이력이 있는 업체는 삭제 대신 "중단" 처리'},
+ exc:['연락처는 숫자와 하이픈만 허용','거래처명 50자 초과 입력 차단'],excMid:['사업자번호 형식(000-00-00000) 검증']},
+room:{title:'회의실 예약 관리',team:'경영지원팀',app:'회의실 예약',en:'Reservation',slug:'reservations',newLabel:'새 예약',nav:['주간 예약','회의실','내 예약'],
+ scenario:'회의실 예약을 메신저로 받다 보니 중복 예약과 노쇼가 반복되고 있습니다. 한 주의 예약 현황을 시간표로 보고, 대화상자에서 예약을 등록·변경·취소할 수 있어야 합니다.',
+ cols:[{h:'예약번호',w:80},{h:'회의실',w:78},{h:'회의명',w:150},{h:'예약자',w:62},{h:'날짜',w:84},{h:'상태',w:56}],
+ rows:[['R-2411-01','대회의실 A','4분기 실적 리뷰','김서준','2024-11-25','확정'],['R-2411-02','소회의실 3','신규 입사자 OT','이하은','2024-11-25','확정'],['R-2411-03','화상회의실','고객사 킥오프','박민재','2024-11-26','대기'],['R-2411-04','소회의실 1','스프린트 회고','최유나','2024-11-26','확정'],['R-2411-05','대회의실 B','디자인 시안 검토','정시우','2024-11-27','취소'],['R-2411-06','소회의실 2','채용 면접 (2차)','강도윤','2024-11-27','대기'],['R-2411-07','대회의실 A','타운홀 준비','윤지아','2024-11-28','확정']],
+ statusCol:5,status:{'확정':'#2b8a3e','대기':'#d9480f','취소':'#868e96'},
+ form:[{l:'예약번호',c:0,t:'ro'},{l:'회의실',c:1,t:'combo'},{l:'회의명',c:2,t:'text'},{l:'예약자',c:3,t:'text'},{l:'날짜',c:4,t:'date'},{l:'상태',c:5,t:'combo'}],total:42,
+ crud:{R:['주 단위로 이동하며 예약을 시간표에 표시'],C:['예약번호 자동 생성, 회의실·회의명·시간 필수'],U:['예약 블록 클릭 시 수정 대화상자 열기'],D:['대화상자의 [삭제]로 예약 삭제']},
+ mid:{R:'회의실 필터로 특정 회의실만 표시',C:'같은 회의실·시간 중복 예약 차단',U:'변경 전 같은 회의실·시간 중복 여부 다시 확인',D:'"확정" 예약은 삭제 대신 취소 처리'},
+ exc:['지난 시간으로 예약 불가','종료 시간이 시작 시간보다 빠르면 오류'],excMid:['예약 가능 시간(09–18시) 밖이면 차단']},
+book:{title:'사내 도서 대여 관리',team:'인재개발팀',app:'도서 대여 관리',en:'Book',slug:'books',newLabel:'도서 등록',nav:['도서','대여 현황','통계'],
+ scenario:'사내 도서실은 대여 장부를 종이로 쓰고 있어 분류별 재고와 연체 도서를 찾기 어렵습니다. 분류 트리로 도서를 찾아보고, 우클릭 메뉴로 대여·반납을 처리할 수 있어야 합니다.',
+ cols:[{h:'도서번호',w:80},{h:'도서명',w:160},{h:'저자',w:75},{h:'분류',w:95},{h:'상태',w:75},{h:'반납예정일',w:95}],
+ rows:[['B-0101','처음 배우는 파이썬','한지수','파이썬','대여중','2024-11-28'],['B-0102','파이썬 데이터 분석','오세린','파이썬','대여가능','-'],['B-0108','C# 실전 입문','문태호','C#','대여중','2024-12-02'],['B-0104','알고리즘 산책','배나래','파이썬','연체','2024-11-15'],['B-0115','모던 자바스크립트','신동현','자바스크립트','대여가능','-'],['B-0121','WPF 화면 설계','홍유진','C#','대여중','2024-12-05'],['B-0130','리액트 첫걸음','임채원','자바스크립트','대여가능','-']],
+ statusCol:4,status:{'대여중':'#1c7ed6','대여가능':'#2b8a3e','연체':'#e03131'},
+ form:[{l:'도서번호',c:0,t:'ro'},{l:'도서명',c:1,t:'text'},{l:'저자',c:2,t:'text'},{l:'분류',c:3,t:'combo'},{l:'상태',c:4,t:'combo'},{l:'반납예정일',c:5,t:'date'}],total:186,
+ crud:{R:['도서명·저자 키워드 검색'],C:['도서번호 B-4자리 자동 생성'],U:['대여중으로 바꾸면 반납예정일 입력 필수'],D:['대여중 도서는 삭제 불가']},
+ mid:{R:null,C:'ISBN 중복 검사',U:'대여 시 반납예정일 자동 계산(+14일)',D:'삭제 시 대여 이력은 보관'},
+ exc:['반납예정일은 오늘 이후만 허용','도서명 100자 초과 차단'],excMid:['ISBN 13자리 숫자 검증']},
+notice:{title:'사내 공지사항 관리',team:'인사팀',app:'공지 관리자',en:'Notice',slug:'notices',newLabel:'공지 등록',nav:['공지사항','카테고리','설정'],
+ scenario:'인사·총무팀 공지가 메일과 메신저로 흩어져 있어 직원들이 놓치는 일이 많습니다. 공지 목록에서 고르면 본문·공지 대상·첨부를 탭으로 확인하고 관리할 수 있어야 합니다.',
+ cols:[{h:'번호',w:44,r:true},{h:'제목',w:170},{h:'작성부서',w:80},{h:'작성자',w:60},{h:'게시일',w:84},{h:'상태',w:64}],
+ rows:[['128','2024년 연말정산 안내','인사팀','김하린','2024-11-20','게시중'],['127','사내 보안 점검 일정','정보보안팀','이준호','2024-11-18','게시중'],['126','12월 사내 행사 일정','총무팀','박소율','2024-11-15','예약'],['125','신규 그룹웨어 가이드','IT지원팀','최도현','2024-11-11','게시중'],['124','주차장 도색 공사 안내','총무팀','정다은','2024-11-07','종료'],['123','하반기 교육 신청 안내','인사팀','김하린','2024-11-01','종료'],['122','VPN 접속 방식 변경','정보보안팀','이준호','2024-10-28','임시저장']],
+ statusCol:5,status:{'게시중':'#2b8a3e','예약':'#1c7ed6','종료':'#868e96','임시저장':'#d9480f'},
+ form:[{l:'번호',c:0,t:'ro'},{l:'제목',c:1,t:'text',req:1},{l:'작성부서',c:2,t:'combo'},{l:'작성자',c:3,t:'text'},{l:'게시일',c:4,t:'date'},{l:'상태',c:5,t:'combo'}],total:128,
+ crud:{R:['제목 키워드로 목록 검색, 최신 게시일 순 정렬'],C:['게시일은 등록 시점으로 자동 기록'],U:['번호는 수정 불가'],D:['삭제 전 확인']},
+ mid:{R:null,C:'예약 게시(게시일 지정) 지원',U:'게시 상태만 바꾸는 빠른 전환',D:'게시중 공지는 "종료"로만 변경'},
+ exc:['제목 100자 초과 차단','첨부 파일은 10MB 이하만 허용'],excMid:['권한 없는 사용자의 수정/삭제 차단']},
+expense:{title:'출장비 정산 승인 관리',team:'재무팀',app:'출장비 정산',en:'Expense',slug:'expenses',newLabel:'정산 요청',nav:['승인 보드','지출 규정','통계'],
+ scenario:'재무팀은 출장비 정산을 이메일로 받아 어떤 요청이 어디까지 처리됐는지 알기 어렵습니다. 요청을 승인 단계별 보드로 보고, 카드를 옮겨 승인·반려할 수 있어야 합니다.',
+ cols:[{h:'요청번호',w:88},{h:'출장지',w:62},{h:'출장 목적',w:150},{h:'신청자',w:64},{h:'금액(원)',w:84,r:true},{h:'상태',w:74}],
+ rows:[['EX-2411-01','부산','고객사 정기 점검','김지후','312,000','승인'],['EX-2411-02','대전','협력사 품질 감사','오민혁','186,500','승인대기'],['EX-2411-03','광주','지역 영업 미팅','서유진','254,000','반려'],['EX-2411-04','제주','신규 매장 오픈 지원','한도윤','498,000','승인대기'],['EX-2411-05','대구','장비 설치 지원','이채은','221,000','승인'],['EX-2411-06','울산','공장 안전 교육','박건우','175,000','승인'],['EX-2411-07','인천','물류센터 실사','최수아','98,000','승인대기']],
+ statusCol:5,status:{'승인':'#2b8a3e','승인대기':'#d9480f','반려':'#e03131'},
+ form:[{l:'요청번호',c:0,t:'ro'},{l:'출장지',c:1,t:'combo'},{l:'출장 목적',c:2,t:'text'},{l:'신청자',c:3,t:'text'},{l:'금액',c:4,t:'text'},{l:'상태',c:5,t:'combo'}],total:53,
+ crud:{R:['신청자 검색과 출장지 필터'],C:['요청번호 자동 생성, 상태는 "승인대기"로 시작'],U:['"승인대기" 상태일 때만 내용 수정 가능'],D:['"승인대기" 요청만 삭제 가능']},
+ mid:{R:null,C:'출장지별 일비 한도 초과 시 경고',U:'승인/반려 시 사유 입력 필수',D:'반려 건은 삭제 대신 보관'},
+ exc:['금액은 0보다 큰 숫자만 허용','출장일이 미래면 정산 요청 불가'],excMid:['금액 1,000만 원 초과 시 추가 확인']},
+voc:{title:'고객 문의(VOC) 처리 관리',team:'고객지원팀',app:'VOC 관리',en:'Inquiry',slug:'inquiries',newLabel:'문의 등록',nav:['처리 보드','담당자','통계'],
+ scenario:'고객지원팀은 고객 문의를 각자 메모로 관리해 처리 지연과 중복 응대가 생깁니다. 문의를 처리 단계별 보드로 보고, 카드를 옮겨 상태를 바꾸고 담당자를 배정할 수 있어야 합니다.',
+ cols:[{h:'접수번호',w:80},{h:'유형',w:60},{h:'제목',w:175},{h:'고객명',w:64},{h:'담당자',w:64},{h:'상태',w:66}],
+ rows:[['CS-1201','배송','주문 상품 배송 지연','권나연','이민우','처리중'],['CS-1202','결제','중복 결제 환불 요청','장태오','박서현','접수'],['CS-1203','제품','전원 버튼 불량 문의','문하린','이민우','완료'],['CS-1204','계정','비밀번호 재설정 오류','송지안','김예준','처리중'],['CS-1205','배송','수령지 변경 요청','노유찬','박서현','완료'],['CS-1206','제품','사용 설명서 요청','유다인','김예준','접수'],['CS-1207','결제','현금영수증 발급 문의','구민결','이민우','완료']],
+ statusCol:5,status:{'접수':'#1c7ed6','처리중':'#d9480f','완료':'#2b8a3e'},
+ form:[{l:'접수번호',c:0,t:'ro'},{l:'유형',c:1,t:'combo'},{l:'제목',c:2,t:'text'},{l:'고객명',c:3,t:'text'},{l:'담당자',c:4,t:'combo'},{l:'상태',c:5,t:'combo'}],total:217,
+ crud:{R:['제목·고객명 검색, 담당자 필터'],C:['접수번호 자동 생성, 상태는 "접수"로 시작'],U:['담당자 배정과 상태 변경'],D:['"접수" 상태 문의만 삭제 가능']},
+ mid:{R:null,C:'같은 고객의 24시간 내 동일 유형 문의 중복 경고',U:'"완료"로 옮길 때 처리 내용 입력 필수',D:'삭제 대신 "취소" 상태로 보관'},
+ exc:['담당자 없이 "처리중"으로 이동 불가','제목 100자 초과 차단'],excMid:['완료된 문의는 수정 잠금']},
+stock:{title:'자재 재고 입출고 현황',team:'생산관리팀',app:'재고 입출고 관리',en:'StockMove',slug:'stock-moves',newLabel:'입출고 등록',nav:['대시보드','입출고 내역','품목'],
+ scenario:'생산관리팀은 자재 입출고를 수기 장부에 적어 재고 현황을 한눈에 보기 어렵습니다. 기간별 입출고 수치를 요약 카드와 차트로 보고, 최근 내역을 등록·수정할 수 있어야 합니다.',
+ cols:[{h:'전표번호',w:80},{h:'품목명',w:150},{h:'규격',w:90},{h:'수량',w:60,r:true},{h:'처리일',w:90},{h:'구분',w:60}],
+ rows:[['IO-1107','PVC 파이프 25A','4m','60','2024-11-20','반품'],['IO-1106','스테인리스 너트','M10','250','2024-11-18','출고'],['IO-1105','O-링 P20','P20','300','2024-11-15','입고'],['IO-1104','케이블 타이','200mm','1,000','2024-11-12','출고'],['IO-1103','알루미늄 판재 1T','1000×2000','40','2024-11-08','입고']],
+ statusCol:5,status:{'입고':'#1c7ed6','출고':'#d9480f','반품':'#868e96'},
+ form:[{l:'전표번호',c:0,t:'ro'},{l:'품목명',c:1,t:'combo'},{l:'규격',c:2,t:'text'},{l:'수량',c:3,t:'text'},{l:'처리일',c:4,t:'date'},{l:'구분',c:5,t:'combo'}],total:342,
+ crud:{R:['조회 기간·분류로 요약 수치와 내역 조회'],C:['전표번호 자동 생성, 품목·수량·구분 필수'],U:['지난달 처리분 전표는 수정 불가'],D:['삭제 시 재고 수량도 되돌림']},
+ mid:{R:null,C:'출고 수량이 현재 재고보다 많으면 차단',U:'수정 시 재고 차이를 다시 계산',D:'마감된 월의 전표 삭제 불가'},
+ exc:['수량은 1 이상 정수만 허용','처리일이 미래면 등록 불가'],excMid:['재고 계산은 트랜잭션으로 처리']}
+};
+
+/* 아이디어 = 화면 유형(레이아웃) + 업무 */
+const IDEAS={
+/* ---------- 초급: 컨트롤·이벤트 연습 (CRUD 없음) ---------- */
+b_edu:{lv:'초급',opt:['요청 사항 입력 중 글자 수 실시간 표시','제출 내용을 클립보드로 복사'],cls:'ApplyValidator',lay:'form',title:'사내 교육 신청서',team:'인재개발팀',app:'교육 신청',slug:'apply',groupL:'신청 정보',
+ scenario:'인재개발팀은 사내 교육 신청을 메일로 받다 보니 필수 정보가 자주 빠집니다. 필요한 항목을 빠짐없이 입력받고, 제출 전에 입력 내용을 한눈에 확인하는 신청 화면을 만듭니다.',
+ fields:[{l:'이름',t:'text',v:'김민지',req:1},{l:'소속 부서',t:'combo',v:'개발1팀',req:1},{l:'교육 과정',t:'combo',v:'Git 협업 실무',req:1},{l:'수강 방식',t:'radio',o:['온라인','오프라인'],v:1},{l:'관심 분야',t:'check',o:['백엔드','프론트','데이터'],on:[0,2]},{l:'희망 시작일',t:'date',v:'2024-12-02'},{l:'요청 사항',t:'multi',v:['노트북 대여가 필요합니다.']}],
+ done:['제출 완료','Git 협업 실무 신청이 접수되었습니다.'],
+ reqs:[{k:'입력',items:['이름·부서·교육 과정은 필수 입력','수강 방식은 하나만, 관심 분야는 여러 개 선택']},{k:'미리보기',items:['입력값이 바뀔 때마다 오른쪽 미리보기에 즉시 반영','선택하지 않은 항목은 "선택 안 함"으로 표시']},{k:'제출',items:['[제출] 시 필수값을 확인한 뒤 완료 메시지 표시','제출 후 입력란은 읽기 전용으로 전환']},{k:'초기화',items:['[초기화] 시 확인 후 모든 입력값을 처음 상태로']}],
+ exc:['이름에 숫자나 특수문자 입력 시 안내','희망 시작일이 오늘 이전이면 오류','요청 사항 200자 초과 입력 차단'],
+ learn:'입력 컨트롤 종류별로 값 읽기, 값 변경 이벤트 처리, 기본 입력 검증'},
+b_trip:{lv:'초급',opt:['조건을 바꾸면 이전 결과를 흐리게 표시','계산 내역을 텍스트로 복사'],cls:'TripCostCalculator',lay:'calc',title:'출장비 계산기',team:'재무팀',app:'출장비 계산기',slug:'trip-calc',
+ scenario:'출장자들이 일비와 숙박비 기준을 몰라 정산 금액을 자주 틀립니다. 출장 조건을 넣으면 규정에 맞는 예상 출장비를 바로 보여 주는 계산기를 만듭니다.',
+ fields:[{l:'출장 지역',t:'combo',v:'부산'},{l:'출장 일수',t:'num',v:'3',unit:'일'},{l:'교통수단',t:'radio',o:['KTX','자차','항공'],v:0},{l:'숙박',t:'check',o:['숙박비 포함'],on:[0]},{l:'식대 기준',t:'slider',v:'12,000원',pct:.4}],
+ result:{l:'예상 출장비 합계',v:'486,000',u:'원'},breakdown:[['일비 (3일 × 25,000)','75,000'],['숙박비 (2박 × 80,000)','160,000'],['교통비 (KTX 왕복)','115,000'],['식대 (9끼 × 12,000)','108,000'],['기타 (시내 교통)','28,000']],
+ note:'부산·제주는 숙박비 상한 90,000원 적용',
+ reqs:[{k:'입력',items:['지역·교통수단에 따라 단가가 바뀌도록 구현','출장 일수는 1~30 범위의 숫자만 허용']},{k:'계산',items:['[계산하기] 클릭 시 항목별 금액과 합계 표시','금액은 천 단위 구분 기호로 표시']},{k:'즉시 반영',items:['숙박 체크 해제 시 숙박비 0원 처리','슬라이더를 움직이면 식대 금액 표시 갱신']},{k:'초기화',items:['[초기화] 시 모든 입력값과 결과를 처음 상태로']}],
+ exc:['출장 일수가 비어 있으면 [계산하기] 비활성화','1일 출장에는 숙박 선택 불가','합계가 한도를 넘으면 경고 문구 표시'],
+ learn:'숫자 입력과 형 변환, 조건에 따른 계산 로직, 결과 포맷팅'},
+b_todo:{lv:'초급',opt:['항목 드래그로 순서 바꾸기','마감 시간 입력과 지난 항목 강조'],cls:'TodoList',lay:'todo',title:'오늘의 업무 체크리스트',team:'전 부서 공통',app:'업무 체크리스트',slug:'todo',
+ scenario:'신입사원들이 하루 업무를 메모장에 적다가 놓치는 일이 많습니다. 할 일을 추가하고 완료 체크와 진행률을 볼 수 있는 체크리스트 도구를 만듭니다. 저장 없이 화면 안에서만 동작하면 됩니다.',
+ ph:'할 일을 입력하고 Enter',items:[{t:'주간 보고서 초안 작성',done:1,tag:'높음'},{t:'온보딩 교육 영상 시청',done:1,tag:'보통'},{t:'개발 환경 설치 (VS, Git)',done:1,tag:'높음'},{t:'팀 위키 문서 읽기',done:0,tag:'보통'},{t:'사수와 코드 리뷰 일정 잡기',done:0,tag:'높음'},{t:'사내 메신저 프로필 등록',done:0,tag:'낮음'}],
+ tagC:{'높음':'#e03131','보통':'#1c7ed6','낮음':'#868e96'},
+ reqs:[{k:'추가',items:['입력 후 [추가] 또는 Enter로 목록에 추가','우선순위는 드롭다운으로 선택']},{k:'완료 체크',items:['체크하면 취소선과 회색 처리','완료 개수와 진행률 바 자동 갱신']},{k:'필터',items:['전체·진행 중·완료 라디오 버튼으로 목록 필터링']},{k:'정리',items:['선택 항목 삭제, 완료 항목 일괄 지우기']}],
+ exc:['빈 문자열이나 공백만 입력하면 추가하지 않음','같은 내용이 이미 있으면 안내','선택 없이 [선택 삭제] 클릭 시 안내'],
+ learn:'컬렉션(List) 다루기, 목록 컨트롤 갱신, 체크 상태 이벤트'},
+b_settings:{lv:'초급',opt:['설정을 파일로 저장·불러오기','글자 크기 미리보기 문구'],cls:'SettingsStore',lay:'settings',sel0:0,title:'개인 환경설정 화면',team:'IT지원팀',app:'환경설정',slug:'settings',
+ scenario:'사내 업무 프로그램에 사용자별 환경설정 화면이 필요합니다. 탭으로 나뉜 설정을 바꾸고 [적용]·[확인]·[취소] 동작의 차이를 정확히 구현합니다.',
+ tabs:['일반','알림','화면'],panels:[
+  [{l:'시작 화면',t:'combo',v:'대시보드'},{l:'언어',t:'radio',o:['한국어','English'],v:0},{l:'자동 로그인',t:'check',o:['다음부터 자동 로그인'],on:[0]},{l:'다운로드 폴더',t:'text',v:'C:\\Users\\minji\\Downloads'}],
+  [{l:'알림 받기',t:'check',o:['메신저','메일','팝업'],on:[0,2]},{l:'방해 금지',t:'check',o:['업무 시간 외 알림 끄기'],on:[0]},{l:'알림 소리',t:'combo',v:'기본음'},{l:'알림 유지 시간',t:'slider',v:'5초',pct:.35}],
+  [{l:'테마',t:'radio',o:['라이트','다크','시스템'],v:2},{l:'글자 크기',t:'slider',v:'14px',pct:.5},{l:'화면 배율',t:'combo',v:'100%'},{l:'표 줄무늬',t:'check',o:['목록에 줄무늬 표시'],on:[]}]],
+ reqs:[{k:'탭 전환',items:['탭을 바꿔도 다른 탭의 입력값 유지']},{k:'적용',items:['[적용]은 창을 닫지 않고 설정 반영','변경 사항이 없으면 [적용] 비활성화']},{k:'확인·취소',items:['[확인]은 반영 후 닫기, [취소]는 변경 내용 버리기','[기본값 복원]은 확인 후 모든 탭 초기화']},{k:'즉시 표시',items:['슬라이더를 움직이면 값 라벨 즉시 갱신']}],
+ exc:['다운로드 폴더 경로가 없으면 오류 표시','변경 후 저장하지 않고 닫으면 확인 메시지','글자 크기는 10~24px 범위만 허용'],
+ learn:'탭 컨트롤, 설정값 보관과 되돌리기, 버튼 활성/비활성 제어'},
+b_wizard:{lv:'초급',opt:['완료한 단계는 단계 표시를 눌러 바로 이동','작성 중 내용 임시 저장'],cls:'OnboardingValidator',lay:'wizard',title:'입사 서류 제출 마법사',team:'인사팀',app:'입사 서류 제출',slug:'onboarding',
+ scenario:'입사 서류를 한 번에 받으려니 입력 항목이 많아 누락이 생깁니다. 4단계로 나눠 차례대로 입력하고, 마지막에 전체 내용을 확인한 뒤 제출하는 마법사 화면을 만듭니다.',
+ steps:['기본 정보','연락처','급여 계좌','확인'],pages:[
+  [{l:'이름',t:'text',v:'김민지',req:1},{l:'입사일',t:'date',v:'2024-12-02',req:1},{l:'소속 부서',t:'combo',v:'개발1팀',req:1},{l:'고용 형태',t:'radio',o:['정규직','계약직'],v:0}],
+  [{l:'휴대전화',t:'text',v:'010-2481-7730',req:1},{l:'회사 메일',t:'text',v:'minji.kim@example.com'},{l:'비상 연락처',t:'text',v:'010-5512-0934'},{l:'주소',t:'text',v:'서울시 마포구 월드컵북로 12'}],
+  [{l:'은행',t:'combo',v:'선택하세요',req:1},{l:'예금주',t:'text',v:'김민지',req:1},{l:'계좌번호',t:'text',v:'',ph:'숫자만 입력',req:1},{l:'통장 사본',t:'text',v:'',ph:'파일 선택…'}],
+  [{l:'이름',t:'ro',v:'김민지'},{l:'소속',t:'ro',v:'개발1팀 · 정규직'},{l:'연락처',t:'ro',v:'010-2481-7730'},{l:'확인',t:'check',o:['입력한 내용이 사실임을 확인합니다'],on:[]}]],
+ reqs:[{k:'단계 이동',items:['[다음]은 현재 단계 필수값을 확인한 뒤 이동','[이전]은 검증 없이 이동하고 입력값 유지']},{k:'진행 표시',items:['상단 단계 표시와 진행률 바를 현재 단계에 맞게 갱신','완료한 단계는 체크 표시']},{k:'요약',items:['마지막 단계에서 입력값을 읽기 전용으로 요약']},{k:'제출',items:['확인 체크 전에는 [제출] 비활성화']}],
+ exc:['휴대전화 형식(010-0000-0000) 검증','계좌번호는 숫자만 허용','첫 단계에서는 [이전] 비활성화'],
+ learn:'화면 상태(현재 단계) 관리, 단계별 검증, 버튼 활성화 조건'},
+b_lookup:{lv:'초급',opt:['검색어와 일치하는 글자 강조','최근 본 직원 목록'],cls:'ContactSearch',lay:'lookup',title:'사내 연락처 검색',team:'총무팀',app:'사내 연락처',slug:'people',
+ scenario:'새로 온 직원들이 누구에게 연락해야 할지 몰라 매번 주변에 묻습니다. 이름이나 부서로 동료를 찾고, 선택하면 연락처 상세를 보여 주는 조회 전용 화면을 만듭니다. 등록·수정 기능은 없습니다.',
+ people:[{n:'김서준',p:'책임',d:'경영지원팀',e:'2141',m:'seojun.kim',l:'본사 7층'},{n:'이하은',p:'선임',d:'인사팀',e:'2203',m:'haeun.lee',l:'본사 6층'},{n:'박민재',p:'수석',d:'개발1팀',e:'3105',m:'minjae.park',l:'R&D센터 3층'},{n:'최유나',p:'사원',d:'디자인팀',e:'3320',m:'yuna.choi',l:'R&D센터 4층'},{n:'정시우',p:'책임',d:'영업팀',e:'2410',m:'siwoo.jung',l:'본사 5층'},{n:'강도윤',p:'선임',d:'IT지원팀',e:'2077',m:'doyun.kang',l:'본사 2층'}],
+ reqs:[{k:'검색',items:['입력 즉시 이름·부서에 검색어가 들어간 사람만 표시','부서 필터와 검색어를 함께 적용']},{k:'목록',items:['이름·직급·부서·내선을 두 줄로 표시','검색 결과 인원 수 표시']},{k:'상세',items:['목록에서 선택하면 오른쪽에 상세 정보 표시','선택이 없으면 안내 문구 표시']},{k:'복사',items:['[이메일 복사]로 주소를 클립보드에 복사']}],
+ exc:['검색 결과가 없으면 "검색 결과가 없습니다" 표시','검색어 앞뒤 공백 무시','영문은 대소문자 구분 없이 검색'],
+ learn:'목록 필터링, 선택 이벤트로 상세 표시, 조회 전용 화면 구성'},
+b_leave:{lv:'초급',opt:['월별 사용 내역 표','반차 사용 횟수 집계'],cls:'LeaveCalculator',lay:'calc',title:'연차 계산기',team:'인사팀',app:'연차 계산기',slug:'leave-calc',
+ scenario:'직원들이 남은 연차를 인사팀에 매번 문의합니다. 입사일과 사용한 연차를 넣으면 올해 발생 연차와 남은 일수를 계산하는 도구를 만듭니다. 계산 규칙은 과제용으로 단순화합니다.',
+ fields:[{l:'입사일',t:'date',v:'2021-03-02'},{l:'기준일',t:'date',v:'2024-11-24'},{l:'사용한 연차',t:'num',v:'9.5',unit:'일'},{l:'반차',t:'check',o:['반차를 0.5일로 계산'],on:[0]},{l:'근무 형태',t:'radio',o:['주 5일','주 4일'],v:0}],
+ result:{l:'남은 연차',v:'6.5',u:'일'},breakdown:[['근속 기간','3년 8개월'],['올해 발생 연차','16일'],['사용한 연차','9.5일'],['소멸 예정 (12/31)','6.5일']],
+ note:'과제용 규칙: 1년 이상 15일, 3년차부터 2년마다 1일 가산',
+ reqs:[{k:'입력',items:['입사일·기준일은 날짜 선택 컨트롤로 입력','사용 연차는 0.5 단위로 입력']},{k:'계산',items:['근속 기간을 년·개월로 계산','발생 연차와 남은 연차 계산']},{k:'표시',items:['남은 연차는 크게, 세부 내역은 표로 표시','남은 연차가 3일 이하이면 강조 색상']},{k:'기본값',items:['기준일 기본값은 오늘 날짜']}],
+ exc:['입사일이 기준일보다 늦으면 오류','사용 연차가 발생 연차보다 많으면 경고','숫자가 아닌 값 입력 차단'],
+ learn:'날짜 계산, 숫자 형식 검증, 조건부 강조 표시'},
+b_rent:{lv:'초급',opt:['대여 기간을 달력에 표시','자주 빌리는 비품 즐겨찾기'],cls:'RentValidator',lay:'form',title:'비품 대여 신청서',team:'총무팀',app:'비품 대여 신청',slug:'rent',groupL:'대여 정보',
+ scenario:'총무팀은 노트북·빔프로젝터 같은 공용 비품 대여를 구두로 받아 누가 무엇을 빌렸는지 헷갈립니다. 대여 정보를 입력하고 제출 전에 확인하는 신청 화면을 만듭니다.',
+ fields:[{l:'신청자',t:'text',v:'이하은',req:1},{l:'비품 종류',t:'combo',v:'빔프로젝터',req:1},{l:'수량',t:'num',v:'1',unit:'대'},{l:'대여일',t:'date',v:'2024-11-26',req:1},{l:'반납 예정일',t:'date',v:'2024-11-27',req:1},{l:'사용 장소',t:'radio',o:['사내','외부'],v:1},{l:'필요 부속',t:'check',o:['HDMI','리모컨','연장선'],on:[0,1]}],
+ done:['신청 완료','빔프로젝터 1대 대여 신청이 접수되었습니다.'],
+ reqs:[{k:'입력',items:['신청자·비품 종류·대여일·반납 예정일 필수','수량은 1~5 범위의 숫자만 허용']},{k:'미리보기',items:['입력값을 오른쪽에 요약해 표시','대여 기간(일수)을 자동 계산해 표시']},{k:'제출',items:['[제출] 시 필수값 검증 후 완료 메시지']},{k:'초기화',items:['[초기화] 시 날짜는 오늘로 다시 설정']}],
+ exc:['반납 예정일이 대여일보다 빠르면 오류','외부 사용 선택 시 사유 입력 안내','대여 기간 7일 초과 시 경고'],
+ learn:'입력 컨트롤 종류별로 값 읽기, 날짜 비교, 기본 입력 검증'},
+
+/* ---------- 중급: 레이아웃이 다른 실무 CRUD ---------- */
+m_asset:{lv:'중급',opt:['구매일 기준 정렬과 20건 단위 페이징','조회 결과 엑셀 내보내기'],dbHint:'분류·담당부서를 별도 테이블로 나눌지(정규화) 고민해 보기',lay:'gridForm',dom:'asset'},
+m_vendor:{lv:'중급',opt:['스플리터로 좌우 영역 크기 조절','거래처 목록 엑셀 내보내기'],dbHint:'거래처와 거래 이력은 1:N 관계 — 외래키와 거래처 삭제 시 처리(CASCADE vs 차단) 정하기',lay:'masterDetail',dom:'vendor',nameCol:1,subCol:3,tabs:['기본 정보','거래 이력','메모'],
+ hist:{title:'최근 거래 이력',cols:[{h:'거래일',w:90},{h:'품목',w:140},{h:'금액(원)',w:90,r:true}],rows:[['2024-11-12','정밀 가공 부품','4,820,000'],['2024-10-03','금형 수리','1,250,000'],['2024-08-21','시제품 가공','2,940,000']]},
+ extra:{R:'좌측 목록 선택 시 오른쪽 탭에 상세와 거래 이력 표시',U:'저장 후 좌측 목록의 이름·상태 즉시 갱신'}},
+m_voc:{lv:'중급',opt:['카드 드래그 앤 드롭으로 상태 변경','48시간 넘은 미처리 카드 강조'],dbHint:'담당자는 직원 테이블을 참조, 상태 변경 이력을 남길 테이블이 필요한지 고민',lay:'kanban',dom:'voc',lanes:['접수','처리중','완료'],titleCol:2,typeCol:1,whoCol:4,
+ extra:{R:'열마다 건수 표시, 검색어로 카드 필터링',U:'[다음 단계로] 버튼으로 카드를 다음 열로 이동'},move:'다음 단계로 이동 ▶'},
+m_room:{lv:'중급',opt:['예약 블록을 끌어 시간 변경','빈 시간 칸 더블클릭으로 바로 등록','현재 시각 표시선'],dbHint:'회의실을 별도 테이블로 두고, 같은 회의실·시간 중복을 DB 제약으로 막을 수 있는지 검토',lay:'calendar',dom:'room',days:[0,0,1,1,2,2,3],times:[[10,11.5],[14,15],[9.5,10.5],[16,17],[13,14.5],[10.5,12],[15,17]],
+ extra:{C:'[새 예약] 버튼으로 등록 대화상자 열기'}},
+m_stock:{lv:'중급',opt:['주간 입출고 막대 차트 (라이브러리 사용 가능)','구분별 비율 그래프','요약 카드에 전월 대비 증감률'],dbHint:'품목 마스터와 입출고 전표를 분리하고, 현재 재고를 매번 계산할지 저장할지 장단점 비교',lay:'dashboard',dom:'stock',
+ kpis:[{l:'이번 달 입고',v:'1,240',d:'+12%',good:1},{l:'이번 달 출고',v:'1,370',d:'+8%',good:1},{l:'재고 부족 품목',v:'4',d:'+2',good:0},{l:'반품 건수',v:'3',d:'−1',good:1}],
+ chart:{days:['월','화','수','목','금'],a:[320,180,240,300,200],b:[260,310,190,350,260]},ratio:[['입고',52,'#1c7ed6'],['출고',41,'#d9480f'],['반품',7,'#868e96']],
+ extra:{R:'요약 카드 4개와 최근 내역을 같은 조회 조건으로 갱신',C:'등록 후 대시보드 수치 즉시 재계산'}},
+m_book:{lv:'중급',opt:['행 우클릭 컨텍스트 메뉴로 대여·반납','연체 도서 행 색상 강조'],dbHint:'분류 트리는 자기 참조(parent_id) 테이블로, 대여 이력은 별도 테이블로 표현',lay:'treeGrid',dom:'book',
+ tree:[{t:'전체 도서',lvl:0,exp:1,n:186},{t:'프로그래밍',lvl:1,exp:1,n:58},{t:'파이썬',lvl:2,n:21},{t:'C#',lvl:2,n:17},{t:'자바스크립트',lvl:2,n:20},{t:'데이터',lvl:1,exp:0,n:34},{t:'데이터베이스',lvl:1,exp:0,n:22},{t:'인프라',lvl:1,exp:1,n:41},{t:'리눅스',lvl:2,n:19},{t:'네트워크',lvl:2,n:22},{t:'웹',lvl:1,exp:0,n:31}],treeSel:1,
+ ctx:['대여 처리','반납 처리','-','수정','삭제'],
+ extra:{R:'트리에서 분류를 고르면 하위 분류 도서까지 표시',C:'[등록]은 별도 대화상자(모달)로 입력',U:'[대여]·[반납] 버튼으로 상태 변경'}},
+m_notice:{lv:'중급',opt:['첨부 파일 끌어 놓기 업로드','공지 대상별 열람률 집계'],dbHint:'공지 대상·첨부 파일은 공지와 1:N 관계로 분리',lay:'masterDetail',dom:'notice',nameCol:1,subCol:2,tabs:['내용','공지 대상','첨부 파일'],
+ hist:{title:'공지 대상별 열람률',cols:[{h:'대상',w:120},{h:'인원',w:60,r:true},{h:'열람률',w:70,r:true}],rows:[['전 직원','412','86%'],['팀장 이상','38','100%'],['신규 입사자','17','64%']]},
+ extra:{R:'목록 선택 시 오른쪽에 본문·대상·첨부 탭 표시',U:'상태를 바꾸면 목록의 상태 점 색상 즉시 갱신'}},
+m_expense:{lv:'중급',opt:['카드 드래그 앤 드롭으로 상태 변경','열 상단에 금액 합계 표시'],dbHint:'승인·반려 이력(누가, 언제, 사유)을 별도 테이블로 남기기',lay:'kanban',dom:'expense',lanes:['승인대기','승인','반려'],titleCol:2,typeCol:1,whoCol:3,
+ extra:{R:'열 상단에 건수 표시',U:'[승인]·[반려] 버튼으로 상태 변경, 반려 시 사유 입력 대화상자'},move:'승인 · 반려 처리'}
+};
+const IDEA_IDS=Object.keys(IDEAS);
+
+/* ================= 언어/프레임워크 ================= */
+const FW={
+wpf:{optM:['조회 중 로딩 표시 (ProgressBar IsIndeterminate)'],label:'C# WPF',kind:'desktop',sub:'Windows 데스크톱 · WPF',suffix:' 프로그램',first:{초급:'b_edu',중급:'m_asset'},icon:'#0067c0',daysB:'1~2일',daysM:'4~5일',
+ howB:'WPF로 구현하며 초급도 MVVM 패턴을 지켜야 합니다. 코드 비하인드(.xaml.cs)에는 InitializeComponent() 외의 로직을 두지 않습니다.',how:'이를 WPF와 MVVM 패턴의 데스크톱 프로그램으로 구현합니다.',
+ techB:['MVVM 패턴','Data Binding (TwoWay)','ICommand (RelayCommand)','INotifyPropertyChanged','XAML 레이아웃 (Grid·StackPanel)'],
+ techM:['MVVM 패턴 (코드 비하인드 로직 금지)','Data Binding','ICommand','ObservableCollection','INotifyPropertyChanged','async/await','SQLite (EF Core)'],
+ hintsB:['코드 비하인드에는 InitializeComponent()만 남기고, DataContext는 XAML에서 ViewModel로 연결','버튼은 Click 이벤트 대신 Command 바인딩, 입력값은 TwoWay 바인딩으로 ViewModel 속성에 연결','계산·검증은 Logic 클래스로 분리해 ViewModel에서 호출, 결과는 바인딩된 속성으로 표시','ViewModel에서 MessageBox를 직접 부르지 말고 IDialogService 같은 인터페이스로 감싸기'],
+ excB:'오류 메시지는 ViewModel의 ErrorMessage 속성에 담아 바인딩으로 표시',
+ impl:d=>({R:'목록은 ObservableCollection에 바인딩, SelectedItem으로 상세 연결',C:'[등록]은 ICommand(RelayCommand)로 구현',U:'키 입력란은 IsReadOnly로 고정',D:'MessageBox(예/아니오) 확인 후 삭제'}),
+ implMid:d=>({R:'조회는 async 커맨드로 실행하고 진행 중 버튼 비활성화',C:'Repository와 SQLite(EF Core)에 저장',U:'변경이 없으면 CanExecute로 저장 버튼 비활성화',D:'삭제 결과를 상태 표시줄에 표시'}),
+ exc:['IDataErrorInfo로 오류 입력란 테두리를 빨간색으로 표시']},
+winform:{optM:['NPOI로 엑셀 내보내기'],label:'C# WinForm',kind:'desktop',sub:'Windows 데스크톱 · WinForms',suffix:' 프로그램',first:{초급:'b_trip',중급:'m_vendor'},icon:'#0078d7',menu:['파일(F)','편집(E)','보기(V)','도움말(H)'],daysB:'1~2일',daysM:'4~5일',
+ howB:'WinForms 디자이너로 컨트롤을 배치하고 이벤트 핸들러로 동작을 구현합니다. DB는 쓰지 않습니다.',how:'이를 WinForms 데스크톱 프로그램으로 구현합니다.',
+ techB:['디자이너로 폼 배치','이벤트 핸들러 (Click·CheckedChanged)','컨트롤 속성 (Text·Checked·Value)','기본 입력 검증'],
+ techM:['BindingSource','DataTable','ADO.NET','파라미터 쿼리','3계층 구조 (UI·BLL·DAL)','ErrorProvider','async/await'],
+ hintsB:['Anchor·Dock 속성으로 창 크기 변화에 대응','int.TryParse로 숫자 입력을 안전하게 변환','검증 실패 시 MessageBox.Show와 Focus()로 안내'],
+ excB:'try-catch로 예외를 잡고 MessageBox로 안내',
+ impl:d=>({R:'목록은 BindingSource로 DataTable에 연결',C:'[등록] 시 DB INSERT 후 목록 다시 조회',U:'키 TextBox는 ReadOnly',D:'MessageBox 확인 후 삭제, 결과를 StatusStrip에 표시'}),
+ implMid:d=>({R:'조건 검색은 파라미터 쿼리(LIKE)로 구현',C:'UI·BLL·DAL 3계층으로 분리해 INSERT',U:'수정 전후 값을 비교해 변경이 없으면 저장 생략',D:'삭제는 트랜잭션으로 처리'}),
+ exc:['ErrorProvider 아이콘으로 오류 위치 표시']},
+react:{optM:['낙관적 업데이트 (실패 시 롤백)','필터 상태를 URL 쿼리스트링과 동기화'],label:'React',kind:'web',sub:'웹 브라우저 · React SPA',suffix:' 웹 화면',first:{초급:'b_todo',중급:'m_room'},accent:'#2450e6',daysB:'1~2일',daysM:'4~5일',
+ url:sl=>`localhost:5173/${sl}`,
+ howB:'React로 구현하되, 서버 연동 없이 컴포넌트 상태(useState)만 사용합니다.',how:'이를 React 화면과 Mock API(json-server)로 구현합니다.',
+ techB:['JSX','useState','이벤트 핸들링 (onChange·onClick)','조건부 렌더링','리스트 렌더링 (key)'],
+ techM:['useEffect + fetch','json-server Mock API','컴포넌트 분리 / props','React Hook Form + Zod','TanStack Query','커스텀 훅'],
+ hintsB:['입력값은 모두 controlled component로 관리','계산 결과는 상태로 두지 말고 렌더링 중에 계산','화면을 2~3개 컴포넌트로 나누고 props로 전달'],
+ excB:'잘못된 입력은 입력란 아래에 오류 문구로 표시',
+ impl:d=>({R:'useEffect로 목록 조회, 필터는 controlled input 상태로 관리',C:'POST 성공 후 목록 갱신과 토스트',U:'PUT 요청, 키 입력란은 disabled',D:'확인 모달 승인 후 DELETE 요청'}),
+ implMid:d=>({R:'TanStack Query로 캐싱·로딩·에러 상태 처리',C:'React Hook Form + Zod로 폼 검증',U:'저장 중 버튼 비활성화, 실패 시 오류 표시',D:'삭제 후 invalidateQueries로 목록 갱신'}),
+ exc:['API 실패 시 오류 배너와 재시도 버튼, 응답 지연 시 스켈레톤 표시']},
+python:{optM:['ttkbootstrap 등으로 테마 적용'],label:'Python',kind:'desktop',sub:'Python · Tkinter (ttk clam 테마)',suffix:' 프로그램',first:{초급:'b_lookup',중급:'m_book'},icon:'#4a6984',menu:['파일','편집','도움말'],daysB:'1일',daysM:'3~4일',
+ howB:'Tkinter로 구현하며 DB 없이 메모리 안에서만 동작하면 됩니다.',how:'이를 Tkinter와 sqlite3 기반 데스크톱 프로그램으로 구현합니다.',
+ techB:['grid·pack 배치','command 콜백','StringVar·IntVar·BooleanVar','기본 입력 검증'],
+ techM:['sqlite3','클래스 기반 화면 구성','이벤트 바인딩 (bind)','dataclass 모델','Repository 분리','logging'],
+ hintsB:['화면은 tk.Tk를 상속한 App 클래스로 구성','입력값은 StringVar 등 변수 객체와 연결','오류는 messagebox.showwarning으로 안내'],
+ excB:'ValueError 등 예외를 잡아 messagebox로 안내',
+ impl:d=>({R:'Treeview 등 목록 위젯에 결과 표시, 선택 이벤트로 상세 채움',C:'sqlite3 INSERT 후 목록 새로고침',U:'키 Entry는 state="readonly"',D:'messagebox.askyesno 확인 후 삭제'}),
+ implMid:d=>({R:'컬럼 정렬, 상태별 행 태그 색상',C:'dataclass 모델과 Repository로 분리',U:'validatecommand로 입력 중 검증',D:'logging으로 삭제 이력 기록'}),
+ exc:['DB 예외는 logging으로 기록하고 messagebox.showerror로 안내']},
+node:{optM:['JWT 인증 (관리자만 삭제)','Swagger로 API 문서 자동 생성'],label:'NodeJS',kind:'web',sub:'웹 브라우저 · Express + EJS',suffix:' API + 관리자 화면',first:{초급:'b_rent',중급:'m_voc'},accent:'#0f766e',daysB:'1~2일',daysM:'4~5일',
+ url:sl=>`localhost:3000/${sl}`,
+ howB:'Express와 EJS로 구현하며, 폼을 POST로 받아 결과 페이지를 렌더링합니다. DB는 쓰지 않습니다.',how:'이를 Express REST API와 EJS 관리자 화면으로 구현합니다.',
+ techB:['Express 라우팅 (GET·POST)','EJS 템플릿','express.urlencoded로 폼 처리','res.render로 결과 표시'],
+ techM:['REST API (GET·POST·PUT·DELETE)','MVC 폴더 구조','better-sqlite3','미들웨어','express-validator','HTTP 상태 코드'],
+ hintsB:['GET은 빈 화면, POST는 처리 결과를 같은 템플릿으로 렌더링','입력값 검증은 라우트 핸들러에서 직접 처리','공통 레이아웃은 EJS include로 분리'],
+ excB:'잘못된 요청은 400 상태와 함께 오류 메시지를 화면에 표시',
+ impl:d=>({R:`GET /api/${d.slug} — 쿼리로 검색·필터`,C:`POST /api/${d.slug} — 201과 생성된 리소스 반환`,U:`PUT /api/${d.slug}/:id — 없는 id는 404`,D:`DELETE /api/${d.slug}/:id — 성공 시 204`}),
+ implMid:d=>({R:'page·size 페이지네이션, 응답에 total 포함',C:'express-validator로 요청 본문 검증',U:'PATCH로 상태만 바꾸는 API 추가',D:'없는 id 삭제는 404, 성공은 204로 구분'}),
+ exc:['공통 에러 핸들러로 { code, message } 형식 통일, 401·403 구분']}
+};
+const ORDER=['wpf','winform','react','python','node'];
+
+/* 컨트롤 이름 (프레임워크별) */
+const NM={
+ window:['Window','Form','tk.Tk','<App /> (Vite)','EJS 레이아웃'],
+ menu:['Menu','MenuStrip','tk.Menu','<NavBar />','partials/header.ejs'],
+ status:['StatusBar','StatusStrip','ttk.Label (상태줄)','<footer>','<footer>'],
+ group:['GroupBox','GroupBox','ttk.LabelFrame','<fieldset> / Card','<fieldset>'],
+ text:['TextBox (TwoWay 바인딩)','TextBox','ttk.Entry','<input />','<input>'],
+ combo:['ComboBox','ComboBox','ttk.Combobox','<select />','<select>'],
+ date:['DatePicker','DateTimePicker','DateEntry (tkcalendar)','<input type="date" />','<input type="date">'],
+ button:['Button + Command','Button','ttk.Button','<button />','<button>'],
+ radio:['RadioButton','RadioButton','ttk.Radiobutton','radio <input />','radio <input>'],
+ check:['CheckBox','CheckBox','ttk.Checkbutton','checkbox <input />','checkbox <input>'],
+ num:['TextBox + RepeatButton','NumericUpDown','ttk.Spinbox','<input type="number" />','<input type="number">'],
+ slider:['Slider','TrackBar','ttk.Scale','<input type="range" />','<input type="range">'],
+ progress:['ProgressBar','ProgressBar','ttk.Progressbar','<progress />','<progress>'],
+ result:['TextBlock (바인딩)','Label','ttk.Label','<output /> 영역','결과 영역 (POST 후 렌더)'],
+ list:['ListBox','ListBox','tk.Listbox','<ul> + map()','<ul> + forEach'],
+ checklist:['ListBox + CheckBox','CheckedListBox','ttk.Checkbutton 목록','checkbox 목록 + map()','checkbox 목록'],
+ tabs:['TabControl','TabControl','ttk.Notebook','<Tabs />','탭 (?tab= 쿼리)'],
+ steps:['ItemsControl (단계 표시)','Panel + Label','ttk.Frame (단계 표시)','<Stepper />','단계 표시 (?step=)'],
+ grid:['DataGrid','DataGridView','ttk.Treeview','<table />','<table> + forEach'],
+ detail:['Grid (상세 폼)','Panel (상세 폼)','ttk.Frame (상세 폼)','<DetailForm />','<form>'],
+ split:['Grid + GridSplitter','SplitContainer','ttk.PanedWindow','CSS Grid 2열','2열 레이아웃'],
+ kanban:['ItemsControl ×3','FlowLayoutPanel ×3','ttk.Frame ×3','<KanbanColumn /> ×3','상태별 열 (group by)'],
+ card:['Border (카드)','Panel (카드)','ttk.Frame (카드)','<Card />','카드 partial'],
+ calendar:['Grid (주간 시간표)','TableLayoutPanel','grid() 시간표','<WeekCalendar /> (CSS Grid)','<table> 주간 시간표'],
+ dialog:['Window.ShowDialog()','Form.ShowDialog()','tk.Toplevel (grab_set)','<Modal />','<dialog>'],
+ chart:['Canvas 막대 차트','Chart','tk.Canvas 막대 차트','<BarChart />','GET /api/stats + 막대'],
+ tree:['TreeView','TreeView','ttk.Treeview (트리)','<TreeNode /> (재귀)','<details> 중첩'],
+ ctx:['ContextMenu','ContextMenuStrip','tk.Menu (popup)','onContextMenu 메뉴','contextmenu 이벤트 메뉴']
+};
+const nm=(fw,c)=>(NM[c]||[c,c,c,c,c])[ORDER.indexOf(fw)];
+
+/* 화면 유형 */
+const LAY={
+ form:{name:'입력 폼 + 미리보기',controls:['window','group','text','combo','radio','check','date','num','result','button'],
+  ann:[['group','group','입력 영역'],['text','text','텍스트 입력'],['combo','combo','목록에서 선택'],['radio','radio','하나만 선택'],['check','check','여러 개 선택'],['date','date','날짜 선택'],['num','num','숫자 입력'],['result','result','입력 내용 미리보기'],['buttons','button','초기화 / 제출']]},
+ calc:{name:'계산기형 도구',controls:['window','group','combo','num','date','radio','check','slider','button','result'],
+  ann:[['group','group','입력 조건'],['combo','combo','선택 입력'],['date','date','날짜 입력'],['num','num','숫자 입력'],['radio','radio','하나만 선택'],['check','check','옵션'],['slider','slider','값 조절'],['calcBtn','button','계산 실행'],['result','result','계산 결과와 세부 내역']]},
+ todo:{name:'체크리스트',controls:['window','text','combo','button','radio','checklist','progress'],
+  ann:[['text','text','할 일 입력'],['combo','combo','우선순위'],['addBtn','button','추가'],['radio','radio','목록 필터'],['list','checklist','완료 체크 목록 (클릭)'],['progress','progress','진행률'],['buttons','button','삭제']]},
+ settings:{name:'탭 설정 화면',controls:['window','tabs','combo','radio','check','slider','text','button'],
+  ann:[['tabs','tabs','설정 분류 (탭 클릭)'],['combo','combo','선택 입력'],['radio','radio','하나만 선택'],['check','check','켜기 / 끄기'],['slider','slider','값 조절'],['text','text','경로 입력'],['buttons','button','취소 / 적용 / 확인']]},
+ wizard:{name:'단계형 마법사',controls:['window','steps','group','text','combo','date','radio','check','progress','button'],
+  ann:[['steps','steps','단계 표시 (클릭 가능)'],['group','group','현재 단계 입력'],['text','text','텍스트 입력'],['combo','combo','선택 입력'],['date','date','날짜 입력'],['radio','radio','하나만 선택'],['check','check','동의 체크'],['progress','progress','진행률'],['buttons','button','이전 / 다음 (클릭 가능)']]},
+ lookup:{name:'검색 + 상세 조회',controls:['window','text','combo','list','group','button'],
+  ann:[['text','text','검색어'],['combo','combo','부서 필터'],['list','list','검색 결과 (클릭)'],['detail','group','선택한 직원 상세'],['buttons','button','이메일 복사']]},
+ gridForm:{name:'그리드 + 하단 상세 폼',learn:'검색 조건 → 목록 → 상세 폼으로 이어지는 기본 CRUD 흐름과 DB 연동',controls:['window','menu','group','combo','date','text','grid','detail','button','status'],
+  ann:[['search','group','검색 조건'],['combo','combo','분류 필터'],['date','date','기간 2개'],['grid','grid','목록 (행 클릭)'],['form','detail','상세 입력'],['buttons','button','신규 · 등록 · 수정 · 삭제']]},
+ masterDetail:{name:'마스터-디테일 (좌우 분할)',learn:'좌우 분할 레이아웃, 목록과 상세 탭의 선택 동기화, 하위 데이터(이력) 조회',controls:['window','text','list','split','tabs','detail','grid','button'],
+  ann:[['text','text','목록 검색'],['list','list','마스터 목록 (클릭)'],['split','split','영역 분할'],['tabs','tabs','상세 탭'],['form','detail','상세 입력'],['mini','grid','하위 목록'],['buttons','button','신규 · 저장 · 삭제']]},
+ kanban:{name:'칸반 보드',learn:'상태별 그룹핑, 카드 선택과 상태 이동(드래그 앤 드롭), 상세 패널 동기화',controls:['window','text','combo','button','kanban','card','group'],
+  ann:[['text','text','검색'],['combo','combo','담당자 필터'],['addBtn','button','등록'],['lane','kanban','상태별 열'],['card','card','항목 카드 (클릭)'],['move','button','다음 단계로 이동'],['detail','group','선택 카드 상세']]},
+ calendar:{name:'주간 캘린더 + 대화상자',learn:'시간을 좌표로 바꾸는 배치 계산, 모달 대화상자로 등록·수정',controls:['window','button','combo','calendar','card','dialog','text','date'],
+  ann:[['nav','button','주 이동'],['combo','combo','회의실 필터'],['addBtn','button','새 예약'],['cal','calendar','주간 시간표'],['event','card','예약 블록 (클릭)'],['dialog','dialog','예약 수정 대화상자']]},
+ dashboard:{name:'대시보드 (요약 + 차트 + 목록)',learn:'집계 쿼리, 요약 카드와 차트 그리기, 수치와 목록 동기화',controls:['window','date','combo','button','card','chart','progress','grid'],
+  ann:[['date','date','조회 기간'],['addBtn','button','입출고 등록'],['cards','card','요약 카드'],['chart','chart','주간 추이 차트 (선택)'],['ratio','progress','구분별 비율 (선택)'],['grid','grid','최근 내역 (행 클릭)']]},
+ treeGrid:{name:'트리 + 그리드 + 우클릭 메뉴',learn:'계층 데이터 표시, 우클릭 컨텍스트 메뉴, 모달 등록 대화상자',controls:['window','tree','text','button','grid','ctx','dialog'],
+  ann:[['tree','tree','분류 트리'],['text','text','검색'],['buttons','button','등록 · 수정 · 삭제'],['grid','grid','도서 목록 (행 클릭)'],['rent','button','대여 · 반납 (필수)'],['ctx','ctx','우클릭 메뉴 (선택)']]}
+};
+
+
+/* ================= 코드 구조 (초급: 화면/로직 분리, 중급: 3-tier) ================= */
+const snake=t=>t.replace(/([a-z0-9])([A-Z])/g,'$1_$2').toLowerCase();
+const lcf=t=>t[0].toLowerCase()+t.slice(1);
+const ARCH_B={
+ wpf:c=>[['MainWindow.xaml','MainWindow.xaml.cs (이벤트 처리)'],[`Logic/${c}.cs`]],
+ winform:c=>[['MainForm.cs (이벤트 처리)','MainForm.Designer.cs'],[`Logic/${c}.cs`]],
+ python:c=>[['app.py (화면 구성·이벤트)'],[`logic/${snake(c)}.py`]],
+ react:c=>[['src/App.jsx','src/components/*.jsx'],[`src/utils/${lcf(c)}.js`]],
+ node:c=>[['routes/index.js','views/*.ejs'],[`lib/${lcf(c)}.js`]]
+};
+const ARCH_M={
+ wpf:e=>[[`Views/${e}View.xaml`,`ViewModels/${e}ViewModel.cs`],[`Services/I${e}Service.cs`,`Services/${e}Service.cs`],[`Repositories/I${e}Repository.cs`,`Repositories/${e}Repository.cs`,'Data/AppDbContext.cs'],[`Models/${e}.cs`,`Dtos/${e}Dto.cs`]],
+ winform:e=>[[`Forms/${e}Form.cs`],[`BLL/${e}Service.cs`],[`DAL/I${e}Repository.cs`,`DAL/${e}Repository.cs`,'DAL/DbHelper.cs'],[`Models/${e}.cs`]],
+ python:e=>[[`ui/${snake(e)}_view.py`],[`services/${snake(e)}_service.py`],[`repositories/${snake(e)}_repository.py`,'db.py'],[`models/${snake(e)}.py (dataclass)`]],
+ react:e=>[[`src/pages/${e}Page.jsx`,`src/components/${e}*.jsx`],[`src/hooks/use${e}s.js`,`src/services/${lcf(e)}Service.js`],[`src/api/${lcf(e)}Api.js`,'db.json (json-server)'],[`src/constants/${lcf(e)}.js`]],
+ node:e=>[[`routes/${lcf(e)}Routes.js`,`controllers/${lcf(e)}Controller.js`,`views/${lcf(e)}/*.ejs`],[`services/${lcf(e)}Service.js`],[`repositories/${lcf(e)}Repository.js`,'db/index.js'],[`dto/${lcf(e)}Dto.js`]]
+};
+function buildArch(fwId,d,basic){
+ if(basic&&fwId==='wpf')return {title:'MVVM (View · ViewModel · Logic)',
+  layers:[['View','XAML 화면 · 바인딩만',['MainWindow.xaml','MainWindow.xaml.cs (InitializeComponent만)']],['ViewModel','화면 상태·Command',['ViewModels/MainViewModel.cs','Commands/RelayCommand.cs','ViewModels/ViewModelBase.cs']],['Logic','계산·검증 — 단독 테스트 가능',[`Logic/${d.cls}.cs`]]],
+  rules:['코드 비하인드(.xaml.cs)에는 InitializeComponent() 외 코드를 두지 않음','버튼은 Command, 입력값은 TwoWay 바인딩으로 연결','ViewModel은 TextBox 같은 화면 컨트롤을 직접 참조하지 않음','계산·검증은 Logic 클래스에 두고 ViewModel에서 호출']};
+ if(basic){const [ui,lg]=ARCH_B[fwId](d.cls);
+  return {title:'화면과 로직 분리 (2계층)',layers:[['화면','입력을 읽고 결과를 보여 주는 일만',ui],['로직','계산·검증 — 화면 없이도 테스트 가능',lg]],
+   rules:['이벤트 처리 코드는 입력값을 로직 클래스에 넘기고 결과만 표시','로직 클래스는 화면 컨트롤을 직접 참조하지 않음','중급 과제의 3-tier 구조로 가기 위한 첫 단계예요']};}
+ const [p,b,dt,cm]=ARCH_M[fwId](d.en);
+ return {title:'3-tier 구조',layers:[['Presentation','화면 표시·입력, 사용자 이벤트',p],['Business','업무 규칙·검증·트랜잭션',b],['Data','저장·조회만 담당',dt]],common:cm,
+  rules:[fwId==='react'?'컴포넌트 안에서 fetch를 직접 호출하지 않음':fwId==='wpf'?'코드 비하인드에는 InitializeComponent()만 — 로직은 ViewModel 이하, SQL은 Data 계층에만':'화면 계층에는 SQL·DB 접근 코드를 두지 않음',`"${d.mid.C}" 같은 업무 규칙은 Business 계층에 구현`,'Data 계층은 저장·조회만 담당하고, 바꿔 끼울 수 있게 분리','의존 방향은 위에서 아래로 한 방향, 계층 간에는 모델/DTO로 전달'],
+  note:fwId==='react'?'React는 프론트엔드 안에서의 계층 분리예요. 실제 DB 역할은 json-server(Mock API)가 맡습니다.':null};
+}
+function buildDb(fwId,d){
+ const web=FW[fwId].kind==='web'||fwId==='node';
+ return {items:[`화면 항목(${d.form.map(f=>f.l).join(', ')})을 출발점으로, 필요한 테이블과 컬럼을 직접 정해 보기`,
+  `업무 코드(예: ${d.rows[0][0]})와 내부 기본키(자동 증가)를 따로 둘지 결정하고 이유 적기`,
+  '상태값은 코드 테이블로 분리할지, CHECK 제약으로 둘지 비교해 보기','등록일시·수정일시·작성자 같은 공통 컬럼 넣기',d.dbHint,
+  ...(fwId==='react'||fwId==='node'?['API는 URL·메서드·요청/응답 예시·상태 코드를 표로 먼저 정리한 뒤 구현']:[])],
+  out:'README에 ERD와 "왜 이렇게 설계했는지"를 3줄 이상 정리'};
+}
+function buildRubric(fwId,s,d,basic){
+ const bonus={g:'가산점 (선택 기능)',bonus:1,items:s.opt.slice(0,4).map(t=>[t,basic?3:5])};
+ if(basic)return [
+  {g:'기능 요구사항',items:s.reqs.map(r=>[`${r.name}: ${r.items[0]}`,10])},
+  {g:'예외 처리',items:s.exc.slice(0,4).map(t=>[t,5])},
+  {g:'코드 구조',items:fwId==='wpf'?[['코드 비하인드에 로직 없음 (InitializeComponent만)',8],['Click 이벤트 대신 Command·바인딩 사용',7],['계산·검증이 Logic 클래스로 분리됨',5]]:[['화면 코드와 계산·검증 로직이 분리됨',10],['컨트롤·메서드 이름이 역할을 드러냄',5],['중복 없이 메서드로 나눔',5]]},
+  {g:'UI·사용성',items:[['예시 화면과 같은 배치·정렬',5],['탭 이동 순서와 첫 포커스 설정',5]]},
+  {g:'제출물',items:[['README에 실행 방법과 화면 캡처',5],['의미 있는 단위로 커밋',5]]},bonus];
+ return [
+  {g:'기능 (CRUD)',items:['R','C','U','D'].map((op,i)=>[`${OPN[op]}: ${d.crud[op][0]}`,[8,8,7,7][i]])},
+  {g:'3-tier 구조',items:[[s.arch.rules[0],8],[`업무 규칙("${d.mid.C}")이 Business 계층에 있음`,7],['Data 계층이 분리되어 교체 가능',5],['계층 간 모델/DTO로 전달',5]]},
+  {g:'데이터 설계',items:[[fwId==='react'?'db.json 구조와 설계 이유를 README에 정리':'ERD와 설계 이유를 README에 정리',5],['필수값·중복 방지를 DB 제약으로도 반영',5],['날짜·금액 등 타입 선택이 적절함',5]]},
+  {g:'예외·검증',items:s.exc.slice(0,3).map(t=>[t,5])},
+  {g:'코드 품질·제출',items:[['네이밍과 메서드 길이가 적절함',5],['Business 계층 단위 테스트 2개 이상',5],['기능 단위 커밋과 PR 설명 작성',5]]},bonus];
+}
+const DAYS={form:[1,1],calc:[1,1],lookup:[1,1],todo:[1,2],settings:[1,2],wizard:[2,2],gridForm:[4,5],masterDetail:[4,5],kanban:[4,5],dashboard:[4,5],treeGrid:[4,5],calendar:[5,6]};
+const DADJ={wpf:{b:1,m:0},winform:{b:0,m:0},python:{b:0,m:-1},react:{b:0,m:0},node:{b:0,m:0}};
+function estDays(fwId,lay,basic){const a=DADJ[fwId][basic?'b':'m'],[x,y]=DAYS[lay].map(v=>v+a);return (x===y?`${x}일`:`${x}~${y}일`)+(fwId==='wpf'&&basic?' (MVVM 포함)':'');}
+const uniq=a=>[...new Set(a)];
+function compose(fwId,id){
+ const f=FW[fwId],I=IDEAS[id],basic=I.lv==='초급',d=I.dom?{...DOM[I.dom],...I}:I,L=LAY[I.lay];
+ const s={fwId,id,label:f.label,kind:f.kind,sub:f.sub,lv:I.lv,lay:I.lay,layName:L.name,d,
+  title:d.title+(basic?'':f.suffix),team:d.team,scenario:d.scenario+' '+(basic?f.howB:f.how),
+  days:estDays(fwId,I.lay,basic),learn:basic?d.learn:L.learn,
+  controls:uniq(L.controls.map(c=>nm(fwId,c))),tech:basic?f.techB:['3-tier 구조',...f.techM],hints:basic?f.hintsB:null,
+  app:fwId==='winform'&&d.en?`${d.app} - ${(d.en||'Tool')}Manager`:d.app,menu:f.menu,
+  url:f.url?f.url(d.slug):null,nav:d.nav||[d.title,'도움말'],accent:f.accent};
+ if(basic){
+  s.reqs=d.reqs.map((r,i)=>({k:String(i+1),name:r.k,items:r.items}));
+  s.exc=[...d.exc,f.excB];
+ }else{
+  const im=f.impl(d),imm=f.implMid(d),ex=I.extra||{};
+  s.reqs=['R','C','U','D'].map(op=>({k:op,name:OPN[op],items:[...(ex[op]?[ex[op]]:[]),...d.crud[op],d.mid[op],im[op],imm[op]].filter(Boolean)}));
+  s.exc=[...d.exc,...d.excMid,...f.exc];
+ }
+ s.ann=L.ann.map(([k,c,desc])=>({k,n:nm(fwId,c),d:desc}));
+ s.opt=[...(d.opt||[]),...(basic?[]:(f.optM||[]))];
+ s.arch=buildArch(fwId,d,basic);if(!basic)s.db=buildDb(fwId,d);s.rubric=buildRubric(fwId,s,d,basic);
+ return s;
+}
+
+/* ================= 스킨 ================= */
+const WEB={web:true,id:'web',win:'#f6f7f9',title:'#fff',ctrl:'#fff',ro:'#f3f4f6',bd:'#d1d5db',r:6,hdr:'#f9fafb',selInk:'#111827',grid:'#eef0f3',alt:null,gb:'#e5e7eb',gbFill:'#fff',bevel:false,rowHeader:false,frame:10,ch:30,bh:32,card:'#fff',cardBd:'#e5e7eb',lane:'#eef0f3'};
+const SK={
+ wpf:{id:'wpf',win:'#f9f9f9',title:'#ffffff',ctrl:'#ffffff',ro:'#f3f3f3',bd:'#c9c9c9',r:4,accent:'#0067c0',hdr:'#f5f5f5',sel:'#cce4f7',selInk:'#1b1b1b',grid:'#ebebeb',alt:'#fbfbfb',gb:'#d6d6d6',gbFill:'#ffffff',status:'#f3f3f3',menuBg:'#ffffff',bevel:false,rowHeader:false,frame:8,ch:24,bh:28,card:'#ffffff',cardBd:'#dedede',lane:'#f0f0f0',tabBg:'#f3f3f3',panel:'#ffffff'},
+ winform:{id:'winform',win:'#f0f0f0',title:'#ffffff',ctrl:'#ffffff',ro:'#f0f0f0',bd:'#7a7a7a',r:0,accent:'#0078d7',hdr:'#f0f0f0',sel:'#0078d7',selInk:'#ffffff',grid:'#d4d4d4',alt:null,gb:'#d5dfe5',gbFill:'none',status:'#f0f0f0',menuBg:'#f5f6f7',btn:'#e1e1e1',bbd:'#adadad',bevel:true,rowHeader:true,frame:0,ch:24,bh:28,card:'#ffffff',cardBd:'#a0a0a0',lane:'#e4e4e4',tabBg:'#f0f0f0',panel:'#ffffff'},
+ python:{id:'tk',win:'#dcdad5',title:'#ffffff',ctrl:'#ffffff',ro:'#eeedea',bd:'#9e9a91',r:0,accent:'#4a6984',hdr:'#dcdad5',sel:'#4a6984',selInk:'#ffffff',grid:'#e6e4df',alt:null,gb:'#b5b2ab',gbFill:'none',status:'#dcdad5',menuBg:'#f0efed',btn:'#dcdad5',bbd:'#9e9a91',bevel:true,rowHeader:false,frame:0,ch:24,bh:28,card:'#efeee9',cardBd:'#b5b2ab',lane:'#cfcdc8',tabBg:'#cfcdc8',panel:'#dcdad5'},
+ react:{...WEB,accent:'#2450e6',sel:'#eaefff'},
+ node:{...WEB,accent:'#0f766e',sel:'#e1f3ef'}
+};
+const INK=k=>k.web?'#111827':'#1b1b1b',MU=k=>k.web?'#6b7280':'#5f5f5f';
+const GH=k=>k.web?40:22;
+const tw=(t,fs=12)=>{let w=0;for(const c of String(t)){w+=/[ᄀ-퟿]/.test(c)?fs*.98:/[A-Z0-9@#%&]/.test(c)?fs*.64:fs*.54;}return w;};
+const T=(x,y,s,o={})=>html`<text x=${x} y=${y} fontSize=${o.fs||12} fontWeight=${o.fw||400} fill=${o.c||'#1b1b1b'} textAnchor=${o.a||'start'} textDecoration=${o.del?'line-through':'none'}>${s}</text>`;
+const chev=(x,y,c='#444')=>html`<path d=${`M${x-4} ${y-2} l4 4 l4 -4`} stroke=${c} strokeWidth="1.3" fill="none"/>`;
+const shadow=(id)=>html`<filter id=${id} x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="8" floodOpacity=".22"/></filter>`;
+const widths=(cols,avail)=>{const t=cols.reduce((s,c)=>s+c.w,0);return cols.map(c=>c.w/t*avail);};
+const clickable=(fn,el,key)=>html`<g key=${key} onClick=${fn} style=${{cursor:'pointer'}}>${el}</g>`;
+
+/* ================= 컨트롤 ================= */
+function TB(k,x,y,w,val,o={}){
+ const H=o.h||k.ch,ph=!val&&o.ph,lines=Array.isArray(val)?val:null;
+ return html`<g>
+  <rect x=${x} y=${y} width=${w} height=${H} rx=${k.r} fill=${o.ro?k.ro:k.ctrl} stroke=${k.bd}/>
+  ${k.id==='wpf'&&!o.ro?html`<line x1=${x+2} x2=${x+w-2} y1=${y+H-.5} y2=${y+H-.5} stroke="#868686"/>`:null}
+  ${o.icon?html`<g stroke="#8a8a8a" fill="none" strokeWidth="1.4"><circle cx=${x+13} cy=${y+H/2-1} r="4.5"/><path d=${`M${x+16.5} ${y+H/2+2.5} l3.5 3.5`}/></g>`:null}
+  ${lines?lines.map((l,i)=>html`<g key=${i}>${T(x+8,y+16+i*16,l,{fs:11.5,c:INK(k)})}</g>`):
+   T(x+(o.icon?26:8),y+H/2+4,val||o.ph||'',{fs:11.5,c:ph?'#9a9a9a':(o.ro?'#666':INK(k))})}
+ </g>`;
+}
+function Combo(k,x,y,w,val){
+ return html`<g>${TB(k,x,y,w,val)}
+  ${k.bevel?html`<rect x=${x+w-18} y=${y+1} width="17" height=${k.ch-2} fill=${k.id==='tk'?k.btn:'#e9e9e9'} stroke=${k.id==='tk'?k.bbd:'none'}/>`:null}
+  ${chev(x+w-10,y+k.ch/2,k.web?'#6b7280':'#444')}</g>`;
+}
+function Dt(k,x,y,w,val){
+ const ix=x+w-21,cy=y+k.ch/2;
+ return html`<g>${TB(k,x,y,w,val)}
+  ${k.id==='winform'?html`<g><rect x=${x+w-18} y=${y+1} width="17" height=${k.ch-2} fill="#e9e9e9"/>${chev(x+w-10,cy)}</g>`:
+  html`<g stroke=${k.web?'#6b7280':'#555'} fill="none"><rect x=${ix} y=${cy-6} width="13" height="12" rx="1.5"/><line x1=${ix} x2=${ix+13} y1=${cy-2.5} y2=${cy-2.5}/></g>`}</g>`;
+}
+function Num(k,x,y,w,val){
+ const bx=x+w-17,cy=y+k.ch/2;
+ return html`<g>${TB(k,x,y,w,val)}
+  ${k.bevel?html`<g><rect x=${bx} y=${y+1} width="16" height=${k.ch/2-1} fill=${k.id==='tk'?k.btn:'#e9e9e9'} stroke=${k.id==='tk'?k.bbd:'#c9c9c9'}/><rect x=${bx} y=${cy} width="16" height=${k.ch/2-1} fill=${k.id==='tk'?k.btn:'#e9e9e9'} stroke=${k.id==='tk'?k.bbd:'#c9c9c9'}/></g>`:html`<line x1=${bx} x2=${bx} y1=${y+4} y2=${y+k.ch-4} stroke="#e1e1e1"/>`}
+  <path d=${`M${bx+4.5} ${cy-3} l3.5 -4 l3.5 4z M${bx+4.5} ${cy+3} l3.5 4 l3.5 -4z`} fill="#555"/></g>`;
+}
+function Btn(k,x,y,w,label,kind='',o={}){
+ const h=k.bh,op=o.dis?.45:1;
+ if(k.web){
+  const p=kind==='primary',dg=kind==='danger';
+  return html`<g opacity=${op}><rect x=${x} y=${y} width=${w} height=${h} rx="7" fill=${p?k.accent:'#fff'} stroke=${p?k.accent:dg?'#fca5a5':'#d1d5db'}/>
+   ${T(x+w/2,y+h/2+4.5,label,{fs:12.5,fw:600,a:'middle',c:p?'#fff':dg?'#dc2626':'#374151'})}</g>`;
+ }
+ if(k.bevel){
+  const def=kind==='primary';
+  return html`<g opacity=${op}>
+   <rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} fill=${k.btn} stroke=${def?k.accent:k.bbd} strokeWidth=${def?1.6:1}/>
+   <polyline points=${`${x+2},${y+h-3} ${x+2},${y+2} ${x+w-3},${y+2}`} stroke="#ffffff" fill="none"/>
+   <polyline points=${`${x+2},${y+h-2} ${x+w-2},${y+h-2} ${x+w-2},${y+2}`} stroke="#a0a0a0" fill="none"/>
+   ${T(x+w/2,y+18,label,{a:'middle'})}</g>`;
+ }
+ const p=kind==='primary';
+ return html`<g opacity=${op}>
+  <rect x=${x} y=${y} width=${w} height=${h} rx="4" fill=${p?k.accent:'#fdfdfd'} stroke=${p?'#005aa9':'#d0d0d0'}/>
+  <line x1=${x+3} x2=${x+w-3} y1=${y+h-.5} y2=${y+h-.5} stroke=${p?'#003e7a':'#b0b0b0'}/>
+  ${T(x+w/2,y+18,label,{fw:600,a:'middle',c:p?'#fff':(kind==='danger'?'#c42b1c':'#1b1b1b')})}</g>`;
+}
+function Check(k,x,y,label,on){
+ const cy=y+k.ch/2,acc=k.web||k.id==='wpf',fill=on&&acc?k.accent:'#fff';
+ return {w:22+tw(label)+16,el:html`<g>
+  <rect x=${x} y=${cy-7} width="14" height="14" rx=${k.web?3.5:k.id==='wpf'?2.5:0} fill=${fill} stroke=${on&&acc?k.accent:(k.web?'#9ca3af':k.id==='tk'?'#9e9a91':'#333')}/>
+  ${on?html`<path d=${`M${x+3} ${cy} l3 3 l5 -6`} stroke=${acc?'#fff':'#1b1b1b'} strokeWidth="1.8" fill="none"/>`:null}
+  ${T(x+21,cy+4,label,{c:INK(k)})}</g>`};
+}
+function Radio(k,x,y,label,on){
+ const cy=y+k.ch/2,acc=k.web||k.id==='wpf';
+ return {w:22+tw(label)+16,el:html`<g>
+  <circle cx=${x+7} cy=${cy} r="7" fill="#fff" stroke=${on&&acc?k.accent:(k.web?'#9ca3af':k.id==='tk'?'#9e9a91':'#333')} strokeWidth=${on&&acc?1.6:1}/>
+  ${on?html`<circle cx=${x+7} cy=${cy} r="3.6" fill=${acc?k.accent:'#1b1b1b'}/>`:null}
+  ${T(x+21,cy+4,label,{c:INK(k)})}</g>`};
+}
+function Slider(k,x,y,w,pct,val){
+ const cy=y+k.ch/2,tx=x+w*pct;
+ const thumb=k.id==='winform'?html`<path d=${`M${tx-5} ${cy-9} h10 v12 l-5 6 l-5 -6z`} fill="#0078d7"/>`:
+  k.id==='tk'?html`<rect x=${tx-6} y=${cy-9} width="12" height="18" fill=${k.btn} stroke=${k.bbd}/>`:
+  html`<circle cx=${tx} cy=${cy} r="8" fill="#fff" stroke=${k.accent} strokeWidth="2.5"/>`;
+ return html`<g>
+  <rect x=${x} y=${cy-2} width=${w} height="4" rx="2" fill=${k.web?'#e5e7eb':'#cfcfcf'}/>
+  <rect x=${x} y=${cy-2} width=${w*pct} height="4" rx="2" fill=${k.id==='tk'?'#8a8a8a':k.accent}/>
+  ${k.id==='winform'?Array.from({length:11},(_,i)=>html`<line key=${i} x1=${x+w*i/10} x2=${x+w*i/10} y1=${cy+11} y2=${cy+14} stroke="#888"/>`):null}
+  ${thumb}${T(x+w+12,cy+4,val,{fw:600,c:INK(k)})}</g>`;
+}
+function Progress(k,x,y,w,pct,col){
+ const h=k.web?8:12;
+ return html`<g><rect x=${x} y=${y} width=${w} height=${h} rx=${k.web?4:0} fill=${k.web?'#e5e7eb':'#e6e6e6'} stroke=${k.web?'none':'#bcbcbc'}/>
+  <rect x=${x+(k.web?0:1)} y=${y+(k.web?0:1)} width=${Math.max(0,(w-(k.web?0:2))*pct)} height=${h-(k.web?0:2)} rx=${k.web?4:0} fill=${col||(k.id==='winform'?'#06b025':k.accent)}/></g>`;
+}
+function Group(k,x,y,w,h,label){
+ if(k.web)return html`<g><rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} rx="10" fill="#fff" stroke=${k.gb}/>${T(x+16,y+26,label,{fs:13.5,fw:700,c:'#111827'})}</g>`;
+ const lw=tw(label)+12;
+ return html`<g>
+  <rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} rx=${k.r} fill=${k.gbFill} stroke=${k.gb}/>
+  ${k.id==='winform'?html`<rect x=${x+1.5} y=${y+1.5} width=${w-3} height=${h-3} fill="none" stroke="#ffffff"/>`:null}
+  <rect x=${x+8} y=${y-8} width=${lw} height="16" fill=${k.win}/>
+  ${T(x+14,y+4,label,{fw:k.id==='wpf'?600:400})}</g>`;
+}
+function Card(k,x,y,w,h,o={}){
+ return html`<rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} rx=${k.web?10:k.id==='wpf'?6:0} fill=${o.fill||k.card} stroke=${o.stroke||k.cardBd} strokeWidth=${o.sw||1}/>`;
+}
+function Field(k,x,y,w,f,lw,pos){
+ const cx=x+lw,cw=w-lw,E=[];let h=k.ch,rw=cw,key=f.t;
+ E.push(html`<text key="l" x=${x} y=${y+k.ch/2+4} fontSize="12" fill=${INK(k)}>${f.l}${f.req?html`<tspan fill="#d92d20"> *</tspan>`:''}</text>`);
+ if(f.t==='text')E.push(TB(k,cx,y,cw,f.v,{ph:f.ph}));
+ else if(f.t==='ro'){E.push(TB(k,cx,y,cw,f.v,{ro:1}));key=null;}
+ else if(f.t==='multi'){h=54;E.push(TB(k,cx,y,cw,f.v,{h}));key='text';}
+ else if(f.t==='combo'){rw=Math.min(cw,220);E.push(Combo(k,cx,y,rw,f.v));}
+ else if(f.t==='date'){rw=Math.min(cw,150);E.push(Dt(k,cx,y,rw,f.v==='-'?'':f.v));}
+ else if(f.t==='num'){const nw=Math.min(cw,96);E.push(Num(k,cx,y,nw,f.v));if(f.unit)E.push(T(cx+nw+8,y+k.ch/2+4,f.unit,{c:INK(k)}));rw=nw+(f.unit?30:0);}
+ else if(f.t==='radio'||f.t==='check'){let ox=cx;f.o.forEach((o,i)=>{const r=(f.t==='radio'?Radio:Check)(k,ox,y,o,f.t==='radio'?i===f.v:f.on.includes(i));E.push(r.el);ox+=r.w;});rw=ox-cx-10;}
+ else if(f.t==='slider'){rw=Math.min(cw-70,200);E.push(Slider(k,cx+8,y,rw,f.pct,f.v));rw+=70;}
+ if(key&&pos&&!pos[key])pos[key]={x:cx-4,y:y-3,w:rw+8,h:h+6};
+ return {h,el:html`<g>${E.map((e,i)=>html`<g key=${i}>${e}</g>`)}</g>`};
+}
+function fmtVal(f){
+ if(f.t==='radio')return f.o[f.v];
+ if(f.t==='check')return f.on.length?f.o.filter((_,i)=>f.on.includes(i)).join(', '):'선택 안 함';
+ if(f.t==='multi')return f.v.join(' ');
+ if(f.t==='num')return f.v+(f.unit||'');
+ return f.v||'—';
+}
+function List(k,x,y,w,items,o){
+ const rh=o.rh,h=items.length*rh+2,ink=INK(k);
+ return {h,el:html`<g>
+  <rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} rx=${k.web?10:k.r} fill=${k.ctrl} stroke=${k.web?k.gb:k.bd}/>
+  ${items.map((it,i)=>{const ry=y+1+i*rh,on=i===o.sel,white=on&&k.selInk==='#ffffff',c=white?'#fff':it.done?'#9a9a9a':ink;const tx=x+(o.check?32:12);
+   return clickable(()=>o.onSel&&o.onSel(i),html`<g>
+    <rect x=${x+1} y=${ry} width=${w-2} height=${rh} rx=${k.web?8:0} fill=${on?k.sel:'transparent'}/>
+    ${i&&!on&&(k.web||o.two)?html`<line x1=${x+10} x2=${x+w-10} y1=${ry+.5} y2=${ry+.5} stroke=${k.web?'#f0f1f3':'#e6e6e6'}/>`:null}
+    ${o.check?Check(k,x+10,ry+(rh-k.ch)/2,'',it.done).el:null}
+    ${o.two?html`<g>${T(tx,ry+18,it.t,{fw:700,c:c})}${T(tx,ry+34,it.s,{fs:11,c:white?'#e6f0ff':MU(k)})}</g>`:T(tx,ry+rh/2+4,it.t,{c,del:it.done})}
+    ${it.tag?T(x+w-12,ry+rh/2+4,it.tag,{fs:11,fw:700,a:'end',c:white?'#fff':it.tc}):null}
+    ${it.dot?html`<circle cx=${x+w-16} cy=${ry+rh/2} r="4.5" fill=${it.dot}/>`:null}</g>`,i);})}</g>`};
+}
+function Tabs(k,x,y,w,h,tabs,act,onTab){
+ const th=k.web?40:26;let tx=x+(k.web?16:2);const heads=[];
+ tabs.forEach((t,i)=>{const tw_=tw(t,12.5)+(k.web?0:28),on=i===act,x0=tx;
+  heads.push(clickable(()=>onTab&&onTab(i),k.web?html`<g><rect x=${x0-6} y=${y+6} width=${tw_+12} height=${th-8} fill="transparent"/>${T(x0,y+25,t,{fs:13,fw:on?700:500,c:on?k.accent:'#6b7280'})}${on?html`<rect x=${x0} y=${y+th-2} width=${tw_} height="2.5" rx="1" fill=${k.accent}/>`:null}</g>`:
+   html`<g><rect x=${x0} y=${on?y:y+3} width=${tw_} height=${on?th:th-3} fill=${on?k.panel:k.tabBg} stroke=${k.id==='wpf'?'#d0d0d0':k.bd}/>${on?html`<rect x=${x0+1} y=${y+th-1.5} width=${tw_-2} height="3" fill=${k.panel}/>`:null}${T(x0+tw_/2,y+(on?17:19),t,{a:'middle',fw:on&&k.id==='wpf'?600:400})}</g>`,i));
+  tx+=tw_+(k.web?24:0);});
+ const panel=k.web?html`<g><rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} rx="10" fill="#fff" stroke=${k.gb}/><line x1=${x} x2=${x+w} y1=${y+th+.5} y2=${y+th+.5} stroke=${k.gb}/></g>`:
+  html`<rect x=${x+.5} y=${y+th-.5} width=${w-1} height=${h-th} fill=${k.panel} stroke=${k.id==='wpf'?'#d0d0d0':k.bd}/>`;
+ return {top:y+th+(k.web?18:16),hw:tx-x,el:html`<g>${panel}${heads}</g>`};
+}
+function Grid(k,x,y,w,cols,rows,o={}){
+ const web=k.web,rh=k.rowHeader?24:0,sb=web?0:14,hh=web?34:26,rH=web?32:25,n=rows.length,gh=hh+n*rH,pad=web?0:8,rp=web?18:8;
+ const ws=widths(cols,w-rh-sb-(web?24:0)),xs=[];let cx=x+rh+(web?12:0);ws.forEach(v=>{xs.push(cx);cx+=v;});
+ const ink=INK(k),st=o.status||{},sc=o.statusCol;
+ const el=html`<g>
+  <rect x=${x+.5} y=${y+.5} width=${w-1} height=${gh} rx=${web?10:0} fill="#fff" stroke=${web?k.gb:k.bd}/>
+  <rect x=${x+1} y=${y+1} width=${w-2} height=${hh-1} rx=${web?9:0} fill=${k.hdr}/>
+  <line x1=${x} x2=${x+w} y1=${y+hh+.5} y2=${y+hh+.5} stroke=${web?k.gb:(k.id==='wpf'?'#d9d9d9':k.bd)}/>
+  ${cols.map((c,j)=>html`<g key=${'h'+j}>${T(c.r?xs[j]+ws[j]-rp:xs[j]+pad,y+hh/2+4,c.h,{fs:web?11:11.5,fw:web?700:600,a:c.r?'end':'start',c:web?'#4b5563':ink})}
+   ${!web?html`<line x1=${xs[j]+ws[j]-.5} x2=${xs[j]+ws[j]-.5} y1=${y+4} y2=${k.id==='wpf'?y+hh-4:y+gh} stroke=${k.grid}/>`:null}</g>`)}
+  ${rh?html`<line x1=${x+rh+.5} x2=${x+rh+.5} y1=${y} y2=${y+gh} stroke=${k.grid}/>`:null}
+  ${rows.map((r,i)=>{const ry=y+hh+i*rH,on=i===o.sel,white=on&&k.selInk==='#ffffff';
+   return clickable(()=>o.onSel&&o.onSel(i),html`<g>
+    <rect x=${x+1+rh} y=${ry+.5} width=${w-rh-sb-2} height=${rH-1} fill=${on?k.sel:(k.alt&&i%2?k.alt:'#fff')}/>
+    ${rh?html`<g><rect x=${x+1} y=${ry+.5} width=${rh-1} height=${rH-1} fill=${k.hdr}/>${on?html`<path d=${`M${x+9} ${ry+7} l6 5.5 l-6 5.5z`} fill="#333"/>`:null}</g>`:null}
+    ${i<n-1?html`<line x1=${x+1+(web?12:0)} x2=${x+w-sb-(web?12:0)} y1=${ry+rH+.5} y2=${ry+rH+.5} stroke=${web?'#f0f1f3':k.grid}/>`:null}
+    ${r.map((v,j)=>{const c=st[v]&&j===sc?st[v]:null;
+     if(c&&web){const pw=tw(v,10.5)+18;return html`<g key=${j}><rect x=${xs[j]} y=${ry+7} width=${pw} height="18" rx="9" fill=${c} fillOpacity=".13"/>${T(xs[j]+pw/2,ry+20,v,{fs:10.5,fw:700,a:'middle',c})}</g>`;}
+     return html`<g key=${j}>${c&&!white?html`<circle cx=${xs[j]+11} cy=${ry+rH/2} r="3.5" fill=${c}/>`:null}
+      ${T(cols[j].r?xs[j]+ws[j]-rp:xs[j]+(c?19:pad),ry+rH/2+4,v,{fs:11.5,fw:c?600:(web&&j===0?400:400),a:cols[j].r?'end':'start',c:white?'#fff':(c||(web&&j===0?'#6b7280':ink))})}</g>`;})}
+   </g>`,i);})}
+  ${sb?html`<g><rect x=${x+w-sb} y=${y+hh+1} width=${sb-.5} height=${n*rH-1} fill="#f0f0f0"/><rect x=${x+w-sb+3} y=${y+hh+5} width=${sb-6.5} height=${n*rH*.45} rx=${k.id==='wpf'?3:0} fill=${k.id==='wpf'?'#a8a8a8':'#cdcdcd'}/></g>`:null}
+ </g>`;
+ return {h:gh,hh,rH,el};
+}
+function Tree(k,x,y,w,h,nodes,selI){
+ const rh=24;
+ return html`<g><rect x=${x+.5} y=${y+.5} width=${w-1} height=${h-1} rx=${k.web?10:0} fill=${k.ctrl} stroke=${k.web?k.gb:k.bd}/>
+  ${nodes.map((nd,i)=>{const ry=y+8+i*rh,ix=x+10+nd.lvl*16,on=i===selI,white=on&&k.selInk==='#ffffff',plus=k.bevel;
+   return html`<g key=${i}>
+    ${on?html`<rect x=${ix+14} y=${ry} width=${w-(ix-x)-22} height=${rh-2} rx=${k.web?6:0} fill=${k.sel}/>`:null}
+    ${nd.exp!=null?(plus?html`<g><rect x=${ix} y=${ry+6} width="9" height="9" fill="#fff" stroke="#919191"/><line x1=${ix+2} x2=${ix+7} y1=${ry+10.5} y2=${ry+10.5} stroke="#333"/>${nd.exp?null:html`<line x1=${ix+4.5} x2=${ix+4.5} y1=${ry+8} y2=${ry+13} stroke="#333"/>`}</g>`:
+     html`<path d=${nd.exp?`M${ix} ${ry+8} l4 4 l4 -4`:`M${ix+2} ${ry+6} l4 4 l-4 4`} stroke="#555" strokeWidth="1.4" fill="none"/>`):null}
+    <g>${nd.exp!=null?html`<path d=${`M${ix+17} ${ry+7} h5 l2 2 h7 v9 h-14z`} fill="#e8b13a"/>`:html`<rect x=${ix+18} y=${ry+5} width="10" height="13" rx="1" fill="#fff" stroke="#8a8a8a"/>`}</g>
+    ${T(ix+36,ry+15.5,nd.t,{fw:on?700:400,c:white?'#fff':INK(k)})}
+    ${T(x+w-12,ry+15.5,String(nd.n),{fs:11,a:'end',c:white?'#fff':MU(k)})}</g>`;})}</g>`;
+}
+function Dialog(k,x,y,w,h,title){
+ if(k.web)return {by:y+56,el:html`<g><rect x=${x} y=${y} width=${w} height=${h} rx="14" fill="#fff" filter="url(#dsh)"/>
+  ${T(x+20,y+32,title,{fs:15,fw:700,c:'#111827'})}<path d=${`M${x+w-30} ${y+22} l9 9 M${x+w-21} ${y+22} l-9 9`} stroke="#6b7280" strokeWidth="1.6"/></g>`};
+ return {by:y+28+14,el:html`<g>
+  <rect x=${x} y=${y} width=${w} height=${h} rx=${k.frame?6:0} fill=${k.win} stroke="#8a8a8a" filter="url(#dsh)"/>
+  <rect x=${x+.5} y=${y+.5} width=${w-1} height="28" rx=${k.frame?6:0} fill=${k.title}/><line x1=${x} x2=${x+w} y1=${y+28.5} y2=${y+28.5} stroke="#e3e3e3"/>
+  ${T(x+12,y+19,title)}<path d=${`M${x+w-22} ${y+10} l8 8 M${x+w-14} ${y+10} l-8 8`} stroke="#333"/></g>`};
+}
+function Steps(k,x,y,w,steps,act,onStep){
+ const n=steps.length,sp=(w-80)/(n-1),cy=y+18;
+ return html`<g>
+  ${steps.slice(1).map((_,i)=>html`<line key=${'l'+i} x1=${x+40+i*sp+15} x2=${x+40+(i+1)*sp-15} y1=${cy} y2=${cy} stroke=${i<act?k.accent:'#cfcfcf'} strokeWidth="2.5"/>`)}
+  ${steps.map((s,i)=>{const cx=x+40+i*sp,done=i<act,on=i===act;
+   return clickable(()=>onStep(i),html`<g>
+    <circle cx=${cx} cy=${cy} r="14" fill=${done?k.accent:'#fff'} stroke=${done||on?k.accent:'#c4c4c4'} strokeWidth=${on?2.5:1.5}/>
+    ${done?html`<path d=${`M${cx-5} ${cy} l3.5 3.5 l6.5 -7`} stroke="#fff" strokeWidth="2.2" fill="none"/>`:T(cx,cy+4.5,String(i+1),{fs:12.5,fw:700,a:'middle',c:on?k.accent:'#9a9a9a'})}
+    ${T(cx,cy+34,s,{fs:12,fw:on?700:400,a:'middle',c:on?INK(k):MU(k)})}</g>`,i);})}</g>`;
+}
+function Pins({list,pos}){
+ return html`<g>${list.map((a,i)=>{const r=pos[a.k];return html`<g key=${i}>
+   <rect x=${r.x} y=${r.y} width=${r.w} height=${r.h} fill="rgba(240,100,30,.05)" stroke="#f0641e" strokeDasharray="5 3" strokeWidth="1.2"/>
+   <circle cx=${r.x+2} cy=${r.y+2} r="10" fill="#f0641e" stroke="#fff" strokeWidth="2"/>
+   ${T(r.x+2,r.y+6,String(i+1),{fs:11,fw:700,a:'middle',c:'#fff'})}</g>`;})}</g>`;
+}
+
+/* ================= 화면 유형별 레이아웃 ================= */
+const L={};
+const mk=()=>{const E=[];return {E,add:e=>E.push(html`<g key=${E.length}>${e}</g>`)};};
+const rg=k=>k.web?14:10;
+
+/* ---- 초급 ---- */
+L.form=({k,s},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},lw=k.web?100:88,LW=Math.round(b.w*.57),gh=GH(k);
+ let y=b.y+gh+4;const F=[];
+ d.fields.forEach(f=>{const r=Field(k,b.x+16,y,LW-32,f,lw,pos);F.push(r.el);y+=r.h+rg(k);});
+ const gH=Math.max(y-b.y+6,gh+d.fields.length*24+130);
+ add(Group(k,b.x,b.y,LW,gH,d.groupL||'신청 정보'));F.forEach(add);
+ pos.group={x:b.x,y:b.y,w:LW,h:gH};
+ const px=b.x+LW+14,pw=b.w-LW-14;
+ add(Group(k,px,b.y,pw,gH,'입력 내용 미리보기'));
+ let py=b.y+gh+14;
+ d.fields.forEach(f=>{add(T(px+16,py,f.l,{fs:11.5,c:MU(k)}));const v=fmtVal(f);add(T(px+pw-16,py,v.length>18?v.slice(0,17)+'…':v,{fw:600,a:'end',c:INK(k)}));
+  add(html`<line x1=${px+16} x2=${px+pw-16} y1=${py+8} y2=${py+8} stroke=${k.web?'#f0f1f3':'#e4e4e4'}/>`);py+=24;});
+ const dy=b.y+gH-70;
+ add(html`<g><rect x=${px+14} y=${dy} width=${pw-28} height="56" rx=${k.web?8:k.r} fill="#ebfbee" stroke="#b2f2bb"/>
+  <circle cx=${px+34} cy=${dy+28} r="10" fill="#2f9e44"/><path d=${`M${px+29} ${dy+28} l3.5 3.5 l6 -7`} stroke="#fff" strokeWidth="2" fill="none"/>
+  ${T(px+52,dy+24,d.done[0],{fw:700,c:'#2b8a3e'})}${T(px+52,dy+41,d.done[1],{fs:11,c:'#2b8a3e'})}</g>`);
+ pos.result={x:px,y:b.y,w:pw,h:gH};
+ const by=b.y+gH+14,bw=88;
+ add(Btn(k,b.x+LW-2*bw-8,by,bw,'초기화'));add(Btn(k,b.x+LW-bw,by,bw,'제출','primary'));
+ pos.buttons={x:b.x+LW-2*bw-8,y:by,w:2*bw+8,h:k.bh};
+ return {E,pos,h:gH+14+k.bh,status:`입력 항목 ${d.fields.length}개 · 필수 ${d.fields.filter(f=>f.req).length}개`};
+};
+L.calc=({k,s},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},lw=k.web?92:84,LW=Math.round(b.w*.5),gh=GH(k);
+ let y=b.y+gh+4;const F=[];
+ d.fields.forEach(f=>{const r=Field(k,b.x+16,y,LW-32,f,lw,pos);F.push(r.el);y+=r.h+rg(k);});
+ y+=6;const cbY=y;y+=k.bh+16;
+ const rH=150+d.breakdown.length*26;
+ const gH=Math.max(y-b.y,rH);
+ add(Group(k,b.x,b.y,LW,gH,'입력 조건'));F.forEach(add);
+ add(Btn(k,b.x+16,cbY,LW-32,'계산하기','primary'));pos.calcBtn={x:b.x+16,y:cbY,w:LW-32,h:k.bh};
+ pos.group={x:b.x,y:b.y,w:LW,h:gH};
+ const px=b.x+LW+14,pw=b.w-LW-14,ry=b.y;
+ add(Card(k,px,ry,pw,gH));
+ add(T(px+22,ry+30,d.result.l,{fs:12.5,fw:600,c:MU(k)}));
+ add(T(px+22,ry+76,d.result.v,{fs:38,fw:800,c:INK(k)}));add(T(px+28+tw(d.result.v,38)*.8,ry+76,d.result.u,{fs:16,fw:700,c:INK(k)}));
+ add(html`<line x1=${px+22} x2=${px+pw-22} y1=${ry+96} y2=${ry+96} stroke=${k.web?'#e5e7eb':'#d6d6d6'}/>`);
+ d.breakdown.forEach(([l,v],i)=>{const yy=ry+120+i*26;add(T(px+22,yy,l,{c:MU(k)}));add(T(px+pw-22,yy,v,{fw:600,a:'end',c:INK(k)}));});
+ add(html`<g><circle cx=${px+30} cy=${ry+gH-22} r="7" fill="none" stroke=${MU(k)}/>${T(px+30,ry+gH-18,'i',{fs:10,fw:700,a:'middle',c:MU(k)})}${T(px+44,ry+gH-18,d.note,{fs:11,c:MU(k)})}</g>`);
+ pos.result={x:px,y:ry,w:pw,h:gH};
+ return {E,pos,h:gH,status:`계산 완료 · ${d.result.l} ${d.result.v}${d.result.u}`};
+};
+L.todo=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},x=b.x,w=b.w;let y=b.y;
+ const aw=92,cw=112,tw_=w-aw-cw-20,bo=(k.ch-k.bh)/2;
+ add(TB(k,x,y,tw_,'',{ph:d.ph}));pos.text={x:x-4,y:y-3,w:tw_+8,h:k.ch+6};
+ add(Combo(k,x+tw_+10,y,cw,'우선순위: 보통'));pos.combo={x:x+tw_+6,y:y-3,w:cw+8,h:k.ch+6};
+ add(Btn(k,x+w-aw,y+bo,aw,'추가','primary'));pos.addBtn={x:x+w-aw,y:y+bo,w:aw,h:k.bh};
+ y+=k.ch+14;let rx=x;['전체','진행 중','완료'].forEach((t,i)=>{const r=Radio(k,rx,y,t,i===0);add(r.el);rx+=r.w;});
+ pos.radio={x:x-4,y:y-3,w:rx-x,h:k.ch+6};add(T(x+w,y+k.ch/2+4,'정렬: 우선순위순',{a:'end',c:MU(k)}));
+ y+=k.ch+10;
+ const items=d.items.map(it=>({t:it.t,done:it.done,tag:it.tag,tc:d.tagC[it.tag]}));
+ const l=List(k,x,y,w,items,{rh:k.web?38:30,check:1,sel,onSel:setSel});add(l.el);pos.list={x,y,w,h:l.h};
+ y+=l.h+16;const dn=d.items.filter(i=>i.done).length,n=d.items.length;
+ add(T(x,y+k.ch/2+4,`완료 ${dn} / ${n}`,{fw:700,c:INK(k)}));add(Progress(k,x+86,y+k.ch/2-(k.web?4:6),200,dn/n));add(T(x+298,y+k.ch/2+4,Math.round(dn/n*100)+'%',{c:MU(k)}));
+ pos.progress={x:x+82,y:y,w:250,h:k.ch};
+ add(Btn(k,x+w-96,y+bo,96,'선택 삭제','danger'));add(Btn(k,x+w-96-8-138,y+bo,138,'완료 항목 지우기'));
+ pos.buttons={x:x+w-242,y:y+bo,w:242,h:k.bh};
+ return {E,pos,h:y+k.ch-b.y,status:`할 일 ${n}개 · 완료 ${dn}개`};
+};
+L.settings=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},act=sel%d.tabs.length,mx=Math.max(...d.panels.map(p=>p.length));
+ const th=k.web?40:26,ph=th+(k.web?18:16)+mx*(k.ch+rg(k))+18;
+ const t=Tabs(k,b.x,b.y,b.w,ph,d.tabs,act,setSel);add(t.el);pos.tabs={x:b.x,y:b.y,w:t.hw,h:th};
+ let y=t.top;d.panels[act].forEach(f=>{const r=Field(k,b.x+22,y,Math.min(b.w-44,560),f,130,pos);add(r.el);y+=r.h+rg(k);});
+ const by=b.y+ph+14,bw=84;
+ add(Btn(k,b.x,by,116,'기본값 복원'));
+ ['취소','적용','확인'].forEach((l,i)=>add(Btn(k,b.x+b.w-3*bw-16+i*(bw+8),by,bw,l,i===2?'primary':'')));
+ pos.buttons={x:b.x+b.w-3*bw-16,y:by,w:3*bw+16,h:k.bh};
+ return {E,pos,h:ph+14+k.bh,status:`설정 · ${d.tabs[act]} 탭 · 변경 사항 2개`};
+};
+L.wizard=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},n=d.steps.length,act=sel%n,mx=Math.max(...d.pages.map(p=>p.length));
+ add(Steps(k,b.x,b.y,b.w,d.steps,act,setSel));pos.steps={x:b.x+16,y:b.y-6,w:b.w-32,h:62};
+ let y=b.y+70;const gH=GH(k)+mx*(k.ch+rg(k))+14;
+ add(Group(k,b.x,y,b.w,gH,`${act+1}단계 · ${d.steps[act]}`));pos.group={x:b.x,y,w:b.w,h:gH};
+ let fy=y+GH(k)+4;d.pages[act].forEach(f=>{const r=Field(k,b.x+18,fy,Math.min(b.w-36,540),f,104,pos);add(r.el);fy+=r.h+rg(k);});
+ y+=gH+16;const pct=(act+1)/n;
+ add(T(b.x,y+k.bh/2+4,`진행률 ${Math.round(pct*100)}%`,{fw:600,c:INK(k)}));add(Progress(k,b.x+92,y+k.bh/2-(k.web?4:6),220,pct));
+ pos.progress={x:b.x+88,y:y+2,w:228,h:k.bh-4};
+ const bw=92,bx=b.x+b.w-2*bw-8,last=act===n-1;
+ add(clickable(()=>act>0&&setSel(act-1),Btn(k,bx,y,bw,'이전','',{dis:act===0})));
+ add(clickable(()=>!last&&setSel(act+1),Btn(k,bx+bw+8,y,bw,last?'제출':'다음','primary',{dis:last&&!(d.pages[n-1].find(f=>f.t==='check')||{on:[1]}).on.length})));
+ pos.buttons={x:bx,y,w:2*bw+8,h:k.bh};
+ return {E,pos,h:y+k.bh-b.y,status:`${act+1}/${n}단계 · ${d.steps[act]}`};
+};
+L.lookup=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},LW=Math.round(Math.min(310,b.w*.42)),p=d.people[sel]||d.people[0];
+ let y=b.y;add(TB(k,b.x,y,LW,'',{ph:'이름 또는 부서 검색',icon:1}));pos.text={x:b.x-4,y:y-3,w:LW+8,h:k.ch+6};
+ y+=k.ch+10;add(Combo(k,b.x,y,150,'전체 부서'));pos.combo={x:b.x-4,y:y-3,w:158,h:k.ch+6};add(T(b.x+LW,y+k.ch/2+4,`${d.people.length}명`,{a:'end',c:MU(k)}));
+ y+=k.ch+10;const l=List(k,b.x,y,LW,d.people.map(q=>({t:`${q.n} ${q.p}`,s:`${q.d} · 내선 ${q.e}`})),{rh:44,two:1,sel,onSel:setSel});add(l.el);pos.list={x:b.x,y,w:LW,h:l.h};
+ const H=y+l.h-b.y,px=b.x+LW+16,pw=b.w-LW-16;
+ add(Group(k,px,b.y,pw,H,'상세 정보'));pos.detail={x:px,y:b.y,w:pw,h:H};
+ const ay=b.y+GH(k)+38;
+ add(html`<g><circle cx=${px+52} cy=${ay} r="30" fill=${s.accent||SK[s.fwId].accent} fillOpacity=".14"/>${T(px+52,ay+8,p.n[0],{fs:22,fw:800,a:'middle',c:SK[s.fwId].accent})}</g>`);
+ add(T(px+96,ay-2,p.n,{fs:19,fw:800,c:INK(k)}));add(T(px+96,ay+18,`${p.d} · ${p.p}`,{c:MU(k)}));
+ [['부서',p.d],['직급',p.p],['내선번호',p.e],['이메일',p.m+'@example.com'],['근무지',p.l]].forEach(([a,v],i)=>{const yy=ay+58+i*30;
+  add(T(px+22,yy,a,{c:MU(k)}));add(T(px+112,yy,v,{fw:600,c:INK(k)}));add(html`<line x1=${px+22} x2=${px+pw-22} y1=${yy+11} y2=${yy+11} stroke=${k.web?'#f0f1f3':'#e2e2e2'}/>`);});
+ const by=b.y+H-k.bh-16;add(Btn(k,px+pw-22-120,by,120,'이메일 복사','primary'));add(Btn(k,px+pw-22-120-8-120,by,120,'메신저 보내기'));
+ pos.buttons={x:px+pw-270,y:by,w:248,h:k.bh};
+ return {E,pos,h:H,status:`검색 결과 ${d.people.length}명 · 선택: ${p.n}`};
+};
+
+/* ---- 중급 ---- */
+function searchRow(k,x,y,list,pos){
+ const E=[];let cx=x;
+ list.forEach((f,i)=>{E.push(T(cx,y+k.ch/2+4,f.l,{c:INK(k)}));cx+=tw(f.l)+10;
+  if(f.t==='combo'){E.push(Combo(k,cx,y,f.w,'전체'));pos.combo=pos.combo||{x:cx-4,y:y-3,w:f.w+8,h:k.ch+6};cx+=f.w;}
+  else if(f.t==='text'){E.push(TB(k,cx,y,f.w,''));cx+=f.w;}
+  else{const dw=104;E.push(Dt(k,cx,y,dw,f.v[0]));E.push(T(cx+dw+6,y+k.ch/2+4,'~'));E.push(Dt(k,cx+dw+20,y,dw,f.v[1]));pos.date={x:cx-4,y:y-3,w:dw*2+28,h:k.ch+6};cx+=dw*2+20;}
+  cx+=18;});
+ return html`<g>${E.map((e,i)=>html`<g key=${i}>${e}</g>`)}</g>`;
+}
+L.gridForm=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},row=d.rows[sel]||d.rows[0],gh=GH(k);
+ const sh=gh+k.ch+14;add(Group(k,b.x,b.y,b.w,sh,'검색 조건'));pos.search={x:b.x,y:b.y,w:b.w,h:sh};
+ const cy=b.y+gh-2,se=d.search;
+ add(searchRow(k,b.x+16,cy,[{l:se.combo,t:'combo',w:100},{l:se.text,t:'text',w:124},{l:se.range,t:'range',v:se.rv}],pos));
+ add(Btn(k,b.x+b.w-16-72,cy+(k.ch-k.bh)/2,72,'조회','primary'));
+ let y=b.y+sh+12;const g=Grid(k,b.x,y,b.w,d.cols,d.rows,{sel,onSel:setSel,status:d.status,statusCol:d.statusCol});add(g.el);pos.grid={x:b.x,y,w:b.w,h:g.h};
+ y+=g.h+6;const pb=b.x+b.w-6*26;
+ add(T(b.x+2,y+15,'페이지당 20건 · 정렬: 구매일 ▼',{fs:11.5,c:MU(k)}));
+ ['‹','1','2','3','4','›'].forEach((t,i)=>add(html`<g><rect x=${pb+i*26} y=${y} width="22" height="22" rx=${k.web?6:k.r} fill=${t==='1'?k.accent:'#fff'} stroke=${t==='1'?k.accent:k.bd}/>${T(pb+i*26+11,y+15,t,{fs:11.5,a:'middle',c:t==='1'?'#fff':INK(k)})}</g>`));
+ y+=22+18;const fh=gh+2*(k.ch+12)+8,colW=(b.w-28)/3;
+ add(Group(k,b.x,y,b.w,fh,'상세 정보'));pos.form={x:b.x,y,w:b.w,h:fh};
+ d.form.forEach((f,j)=>{const r=Math.floor(j/3),c=j%3;add(Field(k,b.x+14+c*colW,y+gh+r*(k.ch+12),colW-14,{...f,v:row[f.c]},72,null).el);});
+ y+=fh+14;const bw=78,bx=b.x+b.w-4*bw-24;
+ [['신규',''],['등록','primary'],['수정',''],['삭제','danger']].forEach(([l,kd],i)=>add(Btn(k,bx+i*(bw+8),y,bw,l,kd)));
+ add(Btn(k,b.x,y,112,'엑셀 내보내기'));pos.buttons={x:bx,y,w:4*bw+24,h:k.bh};
+ return {E,pos,h:y+k.bh-b.y,status:`총 ${d.total}건 | 선택: ${row[0]} ${row[1]}`};
+};
+L.masterDetail=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},LW=250,row=d.rows[sel]||d.rows[0];
+ add(TB(k,b.x,b.y,LW,'',{ph:'목록 검색',icon:1}));pos.text={x:b.x-4,y:b.y-3,w:LW+8,h:k.ch+6};
+ const ly=b.y+k.ch+10;
+ const l=List(k,b.x,ly,LW,d.rows.map(r=>({t:r[d.nameCol],s:`${r[0]} · ${r[d.subCol]}`,dot:d.status[r[d.statusCol]]})),{rh:44,two:1,sel,onSel:setSel});
+ add(l.el);pos.list={x:b.x,y:ly,w:LW,h:l.h};
+ const sx=b.x+LW+5;add(html`<g>${[0,1,2].map(i=>html`<circle key=${i} cx=${sx+4} cy=${ly+l.h/2-8+i*8} r="1.6" fill="#9a9a9a"/>`)}</g>`);pos.split={x:sx-2,y:ly,w:12,h:l.h};
+ const px=b.x+LW+18,pw=b.w-LW-18,st=row[d.statusCol],sc=d.status[st];
+ add(T(px,b.y+16,row[d.nameCol],{fs:17,fw:800,c:INK(k)}));
+ const nx=px+tw(row[d.nameCol],17)+12;add(html`<g><rect x=${nx} y=${b.y+3} width=${tw(st,11)+16} height="18" rx="9" fill=${sc} fillOpacity=".14"/>${T(nx+8,b.y+16,st,{fs:11,fw:700,c:sc})}</g>`);
+ add(T(px,b.y+34,`${row[0]} · ${d.team}`,{fs:11.5,c:MU(k)}));
+ const ty=b.y+46,colW=(pw-40)/2,fr=Math.ceil(d.form.length/2);
+ const gH0=26+d.hist.rows.length*25+(k.web?16:0);
+ const th=(k.web?40:26)+(k.web?18:16)+fr*(k.ch+10)+16+gH0+16;
+ const t=Tabs(k,px,ty,pw,th,d.tabs,0,null);add(t.el);pos.tabs={x:px,y:ty,w:t.hw,h:k.web?40:26};
+ let fy=t.top;d.form.forEach((f,j)=>{const r=Math.floor(j/2),c=j%2;add(Field(k,px+16+c*(colW+8),fy+r*(k.ch+10),colW,{...f,v:row[f.c]},74,null).el);});
+ pos.form={x:px+10,y:fy-6,w:pw-20,h:fr*(k.ch+10)+4};
+ fy+=fr*(k.ch+10)+6;add(T(px+16,fy+4,d.hist.title,{fw:700,c:INK(k)}));
+ const g=Grid(k,px+16,fy+12,pw-32,d.hist.cols,d.hist.rows,{});add(g.el);pos.mini={x:px+16,y:fy+12,w:pw-32,h:g.h};
+ const by=ty+th+12,bw=78;
+ [['신규',''],['저장','primary'],['삭제','danger']].forEach(([lb,kd],i)=>add(Btn(k,px+pw-3*bw-16+i*(bw+8),by,bw,lb,kd)));
+ pos.buttons={x:px+pw-3*bw-16,y:by,w:3*bw+16,h:k.bh};
+ return {E,pos,h:Math.max(ly+l.h,by+k.bh)-b.y,status:`목록 ${d.rows.length}건 · 선택: ${row[d.nameCol]}`};
+};
+L.kanban=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},bo=(k.ch-k.bh)/2;
+ add(TB(k,b.x,b.y,200,'',{ph:'검색',icon:1}));pos.text={x:b.x-4,y:b.y-3,w:208,h:k.ch+6};
+ add(Combo(k,b.x+212,b.y,140,`${d.cols[d.whoCol].h}: 전체`));pos.combo={x:b.x+208,y:b.y-3,w:148,h:k.ch+6};
+ add(Btn(k,b.x+b.w-118,b.y+bo,118,'+ '+d.newLabel,'primary'));pos.addBtn={x:b.x+b.w-118,y:b.y+bo,w:118,h:k.bh};
+ const by=b.y+k.ch+14,DW=212,BW=b.w-DW-14,cw=(BW-20)/3,CH=68;
+ const lanes=d.lanes.map(ln=>d.rows.map((r,i)=>[r,i]).filter(([r])=>r[d.statusCol]===ln));
+ const mxc=Math.max(...lanes.map(l=>l.length));
+ const fields=d.form.filter(f=>f.t!=='ro'),dH=GH(k)+fields.length*(k.web?54:46)+2*k.bh+30;
+ const LH=Math.max(44+mxc*(CH+8)+54,dH);
+ lanes.forEach((cards,li)=>{const lx=b.x+li*(cw+10),col=d.status[d.lanes[li]];
+  add(html`<rect x=${lx} y=${by} width=${cw} height=${LH} rx=${k.web?12:k.id==='wpf'?6:0} fill=${k.lane}/>`);
+  add(html`<g><circle cx=${lx+16} cy=${by+20} r="5" fill=${col}/>${T(lx+28,by+24.5,d.lanes[li],{fw:700,c:INK(k)})}<rect x=${lx+cw-34} y=${by+11} width="24" height="18" rx="9" fill="#fff"/>${T(lx+cw-22,by+24,String(cards.length),{fs:11,fw:700,a:'middle',c:MU(k)})}</g>`);
+  if(li===0)pos.lane={x:lx,y:by,w:cw,h:LH};
+  cards.forEach(([r,ri],ci)=>{const cy=by+40+ci*(CH+8),cx=lx+8,w=cw-16,on=ri===sel;
+   const el=html`<g>${Card(k,cx,cy,w,CH,{fill:'#fff',stroke:on?k.accent:k.cardBd,sw:on?2:1})}
+    ${T(cx+10,cy+17,r[0],{fs:10.5,c:MU(k)})}${T(cx+10,cy+36,r[d.titleCol],{fs:12,fw:700,c:INK(k)})}
+    <rect x=${cx+10} y=${cy+45} width=${tw(r[d.typeCol],10.5)+14} height="16" rx=${k.web?8:2} fill="#f1f3f5"/>${T(cx+17,cy+57,r[d.typeCol],{fs:10.5,c:'#495057'})}
+    <circle cx=${cx+w-16} cy=${cy+53} r="9" fill=${col} fillOpacity=".18"/>${T(cx+w-16,cy+57,r[d.whoCol][0],{fs:10,fw:700,a:'middle',c:col})}</g>`;
+   add(clickable(()=>setSel(ri),el,ri));
+   if(li===0&&ci===0)pos.card={x:cx,y:cy,w,h:CH};});
+  if(li===1){const py=by+40+cards.length*(CH+8);add(html`<g><rect x=${lx+8} y=${py} width=${cw-16} height="40" rx=${k.web?8:0} fill="none" stroke=${k.accent} strokeDasharray="5 4"/>${T(lx+cw/2,py+24,'끌어 놓기 (선택 기능)',{fs:11.5,a:'middle',c:k.accent})}</g>`);}
+ });
+ const row=d.rows[sel]||d.rows[0],dx=b.x+BW+14;
+ add(Group(k,dx,by,DW,LH,'선택 항목'));pos.detail={x:dx,y:by,w:DW,h:LH};
+ let fy=by+GH(k);fields.forEach(f=>{add(T(dx+14,fy+10,f.l,{fs:11,c:MU(k)}));const v=row[f.c];
+  add(f.t==='combo'?Combo(k,dx+14,fy+16,DW-28,v):f.t==='date'?Dt(k,dx+14,fy+16,DW-28,v):TB(k,dx+14,fy+16,DW-28,v));fy+=k.web?54:46;});
+ const bw=(DW-36)/2,last=d.lanes.indexOf(row[d.statusCol])===d.lanes.length-1,my=by+LH-2*k.bh-22;
+ add(Btn(k,dx+14,my,DW-28,last?'완료된 항목':d.move,'primary',{dis:last}));pos.move={x:dx+14,y:my,w:DW-28,h:k.bh};
+ add(Btn(k,dx+14,by+LH-k.bh-14,bw,'수정'));add(Btn(k,dx+22+bw,by+LH-k.bh-14,bw,'삭제','danger'));
+ return {E,pos,h:by+LH-b.y,status:d.lanes.map((l,i)=>`${l} ${lanes[i].length}`).join(' · ')};
+};
+L.calendar=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},bo=(k.ch-k.bh)/2;
+ add(Btn(k,b.x,b.y,34,'‹'));add(Btn(k,b.x+40,b.y,34,'›'));add(Btn(k,b.x+80,b.y,56,'오늘'));pos.nav={x:b.x,y:b.y,w:136,h:k.bh};
+ add(T(b.x+150,b.y+k.bh/2+5,'2024년 11월 25일 – 29일',{fs:14.5,fw:800,c:INK(k)}));
+ add(Combo(k,b.x+b.w-118-12-140,b.y-bo,140,'전체 회의실'));pos.combo={x:b.x+b.w-274,y:b.y-bo-3,w:148,h:k.ch+6};
+ add(Btn(k,b.x+b.w-118,b.y,118,'+ '+d.newLabel,'primary'));pos.addBtn={x:b.x+b.w-118,y:b.y,w:118,h:k.bh};
+ const gy=b.y+k.bh+12,TW=54,dw=(b.w-TW)/5,HH=40,RH=34,hrs=9,gh=HH+hrs*RH,days=['월 25','화 26','수 27','목 28','금 29'],today=1;
+ add(html`<g>
+  <rect x=${b.x+.5} y=${gy+.5} width=${b.w-1} height=${gh} rx=${k.web?10:0} fill="#fff" stroke=${k.web?k.gb:k.bd}/>
+  <rect x=${b.x+1} y=${gy+1} width=${b.w-2} height=${HH-1} rx=${k.web?9:0} fill=${k.hdr}/>
+  ${days.map((t,i)=>html`<g key=${'d'+i}>${i===today?html`<rect x=${b.x+TW+i*dw+1} y=${gy+HH} width=${dw-1} height=${hrs*RH} fill=${k.accent} fillOpacity=".04"/>`:null}
+   ${T(b.x+TW+i*dw+dw/2,gy+25,t,{fs:12.5,fw:700,a:'middle',c:i===today?k.accent:INK(k)})}
+   <line x1=${b.x+TW+i*dw+.5} x2=${b.x+TW+i*dw+.5} y1=${gy} y2=${gy+gh} stroke=${k.web?'#eef0f3':k.grid}/></g>`)}
+  ${Array.from({length:hrs},(_,i)=>html`<g key=${'h'+i}><line x1=${b.x} x2=${b.x+b.w} y1=${gy+HH+i*RH+.5} y2=${gy+HH+i*RH+.5} stroke=${k.web?'#eef0f3':k.grid}/>
+   <line x1=${b.x+TW} x2=${b.x+b.w} y1=${gy+HH+i*RH+RH/2+.5} y2=${gy+HH+i*RH+RH/2+.5} stroke=${k.web?'#f6f7f9':'#f1f1f1'} strokeDasharray="3 3"/>
+   ${T(b.x+TW-8,gy+HH+i*RH+13,`${9+i}:00`,{fs:10.5,a:'end',c:MU(k)})}</g>`)}
+  <line x1=${b.x+TW+today*dw} x2=${b.x+TW+(today+1)*dw} y1=${gy+HH+4.4*RH} y2=${gy+HH+4.4*RH} stroke="#e03131" strokeWidth="1.5"/><circle cx=${b.x+TW+today*dw} cy=${gy+HH+4.4*RH} r="3.5" fill="#e03131"/></g>`);
+ pos.cal={x:b.x,y:gy,w:b.w,h:gh};
+ d.rows.forEach((r,i)=>{const [st,en]=d.times[i],ex=b.x+TW+d.days[i]*dw+3,ey=gy+HH+(st-9)*RH+1,eh=(en-st)*RH-2,c=d.status[r[d.statusCol]],on=i===sel;
+  add(clickable(()=>setSel(i),html`<g><rect x=${ex} y=${ey} width=${dw-6} height=${eh} rx=${k.web?6:k.id==='wpf'?3:0} fill=${c} fillOpacity=${on?.26:.13} stroke=${c} strokeWidth=${on?2:0}/>
+   <rect x=${ex} y=${ey} width="3" height=${eh} fill=${c}/>${T(ex+9,ey+15,r[2],{fs:11,fw:700,c:INK(k)})}${eh>34?T(ex+9,ey+29,r[1],{fs:10.5,c:MU(k)}):null}</g>`,i));
+  if(on)pos.event={x:ex,y:ey,w:dw-6,h:eh};});
+ const row=d.rows[sel]||d.rows[0],[st,en]=d.times[sel]||d.times[0],fm=t=>`${Math.floor(t)}:${t%1?'30':'00'}`;
+ const DW2=316,DH=(k.web?56:42)+5*(k.ch+10)+k.bh+22,dx=b.x+b.w-DW2-18,dy=gy+HH+18;
+ if(k.web)add(html`<rect x=${b.x} y=${gy} width=${b.w} height=${gh} rx="10" fill="#111827" fillOpacity=".28"/>`);
+ const dl=Dialog(k,dx,dy,DW2,DH,'예약 수정');add(dl.el);
+ [{l:'회의실',t:'combo',v:row[1]},{l:'회의명',t:'text',v:row[2]},{l:'예약자',t:'text',v:row[3]},{l:'날짜',t:'date',v:row[4]},{l:'시간',t:'text',v:`${fm(st)} ~ ${fm(en)}`}]
+  .forEach((f,i)=>add(Field(k,dx+18,dl.by+i*(k.ch+10),DW2-36,f,60,null).el));
+ const bby=dy+DH-k.bh-14;add(Btn(k,dx+18,bby,68,'삭제','danger'));add(Btn(k,dx+DW2-18-2*72-8,bby,72,'취소'));add(Btn(k,dx+DW2-18-72,bby,72,'저장','primary'));
+ pos.dialog={x:dx,y:dy,w:DW2,h:DH};
+ return {E,pos,h:gy+gh-b.y,status:`이번 주 예약 ${d.rows.length}건 · 선택: ${row[0]}`};
+};
+const OPT=(k,x,y)=>html`<g><rect x=${x-46} y=${y} width="46" height="18" rx="9" fill="#fff4e6"/>${T(x-23,y+13,'선택',{fs:10.5,fw:700,a:'middle',c:'#d9480f'})}</g>`;
+L.dashboard=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},bo=(k.ch-k.bh)/2;
+ add(T(b.x,b.y+k.ch/2+4,'조회 기간',{c:INK(k)}));add(Dt(k,b.x+62,b.y,112,'2024-11-01'));add(T(b.x+180,b.y+k.ch/2+4,'~'));add(Dt(k,b.x+194,b.y,112,'2024-11-30'));
+ pos.date={x:b.x+58,y:b.y-3,w:252,h:k.ch+6};
+ add(Combo(k,b.x+318,b.y,120,'전체 분류'));add(Btn(k,b.x+446,b.y+bo,64,'조회','primary'));
+ add(Btn(k,b.x+b.w-124,b.y+bo,124,'+ '+d.newLabel));pos.addBtn={x:b.x+b.w-124,y:b.y+bo,w:124,h:k.bh};
+ let y=b.y+k.ch+14;const cw=(b.w-36)/4;
+ d.kpis.forEach((c,i)=>{const cx=b.x+i*(cw+12);add(Card(k,cx,y,cw,84));add(T(cx+16,y+24,c.l,{fs:12,c:MU(k)}));add(T(cx+16,y+56,c.v,{fs:25,fw:800,c:INK(k)}));
+  add(T(cx+16,y+74,`${c.d} 전월 대비`,{fs:11,fw:600,c:c.good?'#2b8a3e':'#e03131'}));});
+ pos.cards={x:b.x,y,w:b.w,h:84};
+ y+=84+12;const c1=Math.round(b.w*.6),CH=196;
+ add(Card(k,b.x,y,c1,CH));add(T(b.x+16,y+26,'주간 입출고 추이',{fs:13,fw:700,c:INK(k)}));
+ add(OPT(k,b.x+c1-142,y+14));add(html`<g><rect x=${b.x+c1-130} y=${y+17} width="10" height="10" fill="#1c7ed6"/>${T(b.x+c1-116,y+26,'입고',{fs:11,c:MU(k)})}<rect x=${b.x+c1-76} y=${y+17} width="10" height="10" fill="#f08c00"/>${T(b.x+c1-62,y+26,'출고',{fs:11,c:MU(k)})}</g>`);
+ const px=b.x+46,py=y+44,ph=118,pw=c1-66,gw=pw/5;
+ [0,100,200,300,400].forEach(v=>{const yy=py+ph-v/400*ph;add(html`<line x1=${px} x2=${px+pw} y1=${yy} y2=${yy} stroke=${k.web?'#f0f1f3':'#ececec'}/>`);add(T(px-8,yy+4,String(v),{fs:10,a:'end',c:MU(k)}));});
+ d.chart.days.forEach((t,i)=>{const gx=px+i*gw+gw/2,bw=gw*.26,ha=d.chart.a[i]/400*ph,hb=d.chart.b[i]/400*ph;
+  add(html`<g><rect x=${gx-bw-2} y=${py+ph-ha} width=${bw} height=${ha} rx=${k.web?3:0} fill="#1c7ed6"/><rect x=${gx+2} y=${py+ph-hb} width=${bw} height=${hb} rx=${k.web?3:0} fill="#f08c00"/></g>`);
+  add(T(gx,py+ph+18,t,{fs:11,a:'middle',c:MU(k)}));});
+ pos.chart={x:b.x,y,w:c1,h:CH};
+ const x2=b.x+c1+12,w2=b.w-c1-12;add(Card(k,x2,y,w2,CH));add(T(x2+16,y+26,'구분별 비율',{fs:13,fw:700,c:INK(k)}));add(OPT(k,x2+w2-14,y+14));
+ d.ratio.forEach(([l,p,c],i)=>{const yy=y+56+i*44;add(T(x2+16,yy,l,{c:INK(k)}));add(T(x2+w2-16,yy,p+'%',{fw:700,a:'end',c:INK(k)}));add(Progress(k,x2+16,yy+9,w2-32,p/100,c));});
+ add(T(x2+16,y+CH-14,'이번 달 처리 2,670건 기준',{fs:11,c:MU(k)}));
+ pos.ratio={x:x2,y,w:w2,h:CH};
+ y+=CH+12;add(T(b.x,y+12,'최근 입출고 내역',{fs:13,fw:700,c:INK(k)}));y+=22;
+ const g=Grid(k,b.x,y,b.w,d.cols,d.rows,{sel,onSel:setSel,status:d.status,statusCol:d.statusCol});add(g.el);pos.grid={x:b.x,y,w:b.w,h:g.h};
+ return {E,pos,h:y+g.h-b.y,status:`마지막 갱신 10:12 · 전체 ${d.total}건`};
+};
+L.treeGrid=({k,s,sel,setSel},b)=>{
+ const d=s.d,{E,add}=mk(),pos={},TW=208,gx=b.x+TW+14,gw=b.w-TW-14,bo=(k.ch-k.bh)/2;
+ add(T(gx,b.y+k.ch/2+5,`${d.tree[d.treeSel].t} · ${d.tree[d.treeSel].n}권`,{fs:14,fw:800,c:INK(k)}));
+ const bw=64,bx=b.x+b.w-3*bw-16;
+ [['등록','primary'],['수정',''],['삭제','danger']].forEach(([l,kd],i)=>add(Btn(k,bx+i*(bw+8),b.y+bo,bw,l,kd)));pos.buttons={x:bx,y:b.y+bo,w:3*bw+16,h:k.bh};
+ add(TB(k,bx-12-170,b.y,170,'',{ph:'도서명·저자 검색',icon:1}));pos.text={x:bx-186,y:b.y-3,w:178,h:k.ch+6};
+ const gy=b.y+k.ch+12,g=Grid(k,gx,gy,gw,d.cols,d.rows,{sel,onSel:setSel,status:d.status,statusCol:d.statusCol});add(g.el);pos.grid={x:gx,y:gy,w:gw,h:g.h};
+ const ay=gy+g.h+12,sr=d.rows[sel]||d.rows[0];
+ add(T(gx,ay+k.bh/2+4,`선택: ${sr[1]}`,{fw:600,c:INK(k)}));
+ add(Btn(k,gx+gw-2*96-8,ay,96,'대여 처리','primary',{dis:sr[d.statusCol]!=='대여가능'}));add(Btn(k,gx+gw-96,ay,96,'반납 처리','',{dis:sr[d.statusCol]==='대여가능'}));
+ pos.rent={x:gx+gw-200,y:ay,w:200,h:k.bh};
+ const H=Math.max(ay+k.bh-b.y,d.tree.length*24+16);
+ add(Tree(k,b.x,b.y,TW,H,d.tree,d.treeSel));pos.tree={x:b.x,y:b.y,w:TW,h:H};
+ const MW=164,items=d.ctx,mh=items.filter(i=>i!=='-').length*26+items.filter(i=>i==='-').length*9+8;
+ const ry=gy+g.hh+sel*g.rH,up=sel>3,mx=gx+gw*.42,my=up?ry-mh+6:ry+g.rH-4;
+ add(html`<g><rect x=${mx} y=${my} width=${MW} height=${mh} rx=${k.web?10:k.id==='wpf'?6:0} fill=${k.web||k.id==='wpf'?'#fff':'#f2f2f2'} stroke=${k.web?k.gb:'#a0a0a0'} filter="url(#dsh)"/>
+  ${(()=>{let yy=my+4;return items.map((it,i)=>{if(it==='-'){const l=html`<line key=${i} x1=${mx+8} x2=${mx+MW-8} y1=${yy+4.5} y2=${yy+4.5} stroke="#d6d6d6"/>`;yy+=9;return l;}
+   const y0=yy;yy+=26;return html`<g key=${i}>${i===0?html`<rect x=${mx+4} y=${y0} width=${MW-8} height="26" rx=${k.web?6:0} fill=${k.id==='winform'?'#cce8ff':k.sel}/>`:null}
+    ${T(mx+16,y0+17.5,it,{fs:12,c:it==='삭제'?'#c92a2a':INK(k)})}${it==='삭제'?T(mx+MW-12,y0+17.5,'Del',{fs:11,a:'end',c:MU(k)}):null}</g>`;});})()}
+  <path d=${`M${mx-4} ${up?my+mh-2:my+2} l0 14 l4 -3.5 l3 6 l2.5 -1.2 l-3 -6 l5 -.3z`} fill="#fff" stroke="#111" strokeWidth=".9"/></g>`);
+ add(OPT(k,mx+MW,up?my-22:my+mh+4));pos.ctx={x:mx,y:my,w:MW,h:mh};
+ return {E,pos,h:H,status:`${d.tree[d.treeSel].t} 분류 · ${d.rows.length}권 표시 · 선택: ${(d.rows[sel]||d.rows[0])[1]}`};
+};
+
+/* ================= 창 / 브라우저 프레임 ================= */
+function renderMock(s,sel,setSel,ann){
+ const k=SK[s.fwId],W=780,fp={},parts=[],P=html;
+ let box,H,r,bgTop;
+ if(!k.web){
+  parts.push(P`<g key="tb"><rect x="0" y="0" width=${W} height="32" rx=${k.frame} fill=${k.title}/><rect x="0" y="16" width=${W} height="16" fill=${k.title}/>
+   <line x1="0" x2=${W} y1="31.5" y2="31.5" stroke="#e3e3e3"/><rect x="12" y="9" width="14" height="14" rx="3" fill=${FW[s.fwId].icon}/>
+   <rect x="15" y="12" width="8" height="2" fill="#fff"/><rect x="15" y="16" width="5" height="2" fill="#fff"/>${T(34,20.5,s.app)}
+   <line x1=${W-133} x2=${W-123} y1="16.5" y2="16.5" stroke="#333"/><rect x=${W-82.5} y="11.5" width="10" height="10" fill="none" stroke="#333"/><path d=${`M${W-28} 11 l10 10 M${W-18} 11 l-10 10`} stroke="#333"/></g>`);
+  fp.title={x:0,y:0,w:W,h:32};let y=32;
+  if(s.menu){parts.push(P`<g key="mn"><rect x="0" y=${y} width=${W} height="22" fill=${k.menuBg}/>${s.menu.map((m,i)=>P`<g key=${i}>${T(12+i*72,y+15,m)}</g>`)}</g>`);fp.menu={x:0,y,w:W,h:22};y+=22;}
+  box={x:16,y:y+18,w:W-32};r=L[s.lay]({k,s,sel,setSel},box);
+  const sy=box.y+r.h+16;
+  parts.push(P`<g key="st"><rect x="0" y=${sy} width=${W} height="24" fill=${k.status}/><line x1="0" x2=${W} y1=${sy+.5} y2=${sy+.5} stroke="#d9d9d9"/>
+   ${T(12,sy+16,r.status,{fs:11.5,c:'#333'})}${T(W-14,sy+16,'준비',{fs:11.5,a:'end',c:'#333'})}</g>`);
+  fp.status={x:0,y:sy,w:W,h:24};H=sy+24;
+ }else{
+  const a=k.accent;
+  parts.push(P`<g key="ch"><rect x="0" y="0" width=${W} height="36" fill="#e3e6ea"/><path d="M8 36 V12 a6 6 0 0 1 6 -6 H226 a6 6 0 0 1 6 6 V36 Z" fill="#fff"/>
+   <circle cx="24" cy="21" r="6" fill=${a}/>${T(38,25,s.app,{fs:11.5,c:'#333'})}<path d="M212 17 l7 7 M219 17 l-7 7" stroke="#777"/>
+   <line x1=${W-133} x2=${W-123} y1="18.5" y2="18.5" stroke="#333"/><rect x=${W-82.5} y="13.5" width="10" height="10" fill="none" stroke="#333"/><path d=${`M${W-28} 13 l10 10 M${W-18} 13 l-10 10`} stroke="#333"/>
+   <rect x="0" y="36" width=${W} height="34" fill="#fff"/><line x1="0" x2=${W} y1="69.5" y2="69.5" stroke="#e1e3e6"/>
+   <path d="M22 53 h-9 m4 -4 l-4 4 l4 4 M38 53 h9 m-4 -4 l4 4 l-4 4" stroke="#666" fill="none" strokeWidth="1.3"/><path d="M68 48 a5.5 5.5 0 1 0 4 2" stroke="#666" fill="none" strokeWidth="1.3"/>
+   <rect x="88" y="42" width=${W-140} height="22" rx="11" fill="#f1f3f4"/><rect x="100" y="51" width="8" height="7" rx="1" fill="#666"/><path d="M101.5 51 v-2 a2.5 2.5 0 0 1 5 0 v2" stroke="#666" fill="none"/>
+   ${T(116,57,s.url,{fs:11.5,c:'#333'})}</g>`);
+  fp.browser={x:0,y:0,w:W,h:70};
+  let nx=210;const navs=s.nav.map((t,i)=>{const x0=nx;nx+=tw(t,13)+30;return P`<g key=${i}>${T(x0,99,t,{fs:13,fw:i===0?700:500,c:i===0?a:'#4b5563'})}${i===0?P`<rect x=${x0} y="115" width=${tw(t,13)} height="3" rx="1.5" fill=${a}/>`:null}</g>`;});
+  parts.push(P`<g key="ab"><rect x="0" y="70" width=${W} height="48" fill="#fff"/><line x1="0" x2=${W} y1="117.5" y2="117.5" stroke="#e5e7eb"/>
+   <rect x="20" y="83" width="22" height="22" rx="6" fill=${a}/>${T(50,99,s.app,{fs:14,fw:800,c:'#111827'})}${navs}
+   <circle cx=${W-34} cy="94" r="13" fill=${a} fillOpacity=".14"/>${T(W-34,98.5,'민',{fs:11,fw:700,a:'middle',c:a})}</g>`);
+  fp.nav={x:204,y:78,w:nx-210,h:34};
+  box={x:22,y:138,w:W-44};r=L[s.lay]({k,s,sel,setSel},box);H=box.y+r.h+26;
+ }
+ const pos={...fp,...r.pos};
+ const frameAnn=k.web?[{k:'browser',n:nm(s.fwId,'window'),d:s.url},{k:'nav',n:nm(s.fwId,'menu'),d:'상단 메뉴'}]:
+  [{k:'title',n:nm(s.fwId,'window'),d:`제목: ${s.app}`},...(s.menu?[{k:'menu',n:nm(s.fwId,'menu'),d:'상단 메뉴'}]:[])];
+ const tail=k.web?[]:[{k:'status',n:nm(s.fwId,'status'),d:'상태 표시'}];
+ const list=[...frameAnn,...s.ann,...tail].filter(a=>pos[a.k]);
+ const svg=html`<svg viewBox=${`-24 -20 ${W+48} ${H+48}`} width="100%" style=${{fontFamily:k.web?"'Noto Sans KR','Segoe UI',sans-serif":"'Segoe UI','Malgun Gothic','Noto Sans KR',sans-serif",display:'block'}} role="img" aria-label=${s.title+' 예시 화면'}>
+  <defs><filter id="wsh" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="8" stdDeviation="10" floodOpacity=".18"/></filter>${shadow('dsh')}
+  <clipPath id="wclip"><rect x="0" y="0" width=${W} height=${H} rx=${k.frame}/></clipPath></defs>
+  <rect x="0" y="0" width=${W} height=${H} rx=${k.frame} fill=${k.win} filter="url(#wsh)"/>
+  <g clipPath="url(#wclip)">${parts}<g>${r.E}</g></g>
+  <rect x=".5" y=".5" width=${W-1} height=${H-1} rx=${k.frame} fill="none" stroke=${k.web?'#c9ccd1':k.id==='wpf'?'#c4c4c4':'#8a8a8a'}/>
+  ${ann?html`<${Pins} list=${list} pos=${pos}/>`:null}
+ </svg>`;
+ return {svg,list};
+}
+
+/* ================= 좌측 명세서 ================= */
+const OPC={R:['#2450e6','#eef2ff'],C:['#2b8a3e','#ebfbee'],U:['#c2410c','#fff4e6'],D:['#c92a2a','#fff5f5'],1:['#2450e6','#eef2ff'],2:['#0c8599','#e3fafc'],3:['#2b8a3e','#ebfbee'],4:['#c2410c','#fff4e6']};
+const LC=[['#2450e6','#eef2ff'],['#c2410c','#fff4e6'],['#2b8a3e','#ebfbee']];
+function Arch({a,basic}){
+ return html`<section className="rounded-xl border border-gray-200 bg-white p-4">
+  <h3 className="text-[15px] font-bold">코드 구조 · ${a.title}</h3>
+  <div className="mt-3">${a.layers.map(([name,role,files],i)=>{const [fg,bg]=LC[i];return html`<div key=${i}>
+   ${i?html`<div className="flex h-6 items-center pl-6 text-gray-400" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 4v15M6 13l6 6 6-6"/></svg></div>`:null}
+   <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2.5" style=${{borderColor:bg,background:bg+'99'}}>
+    <div className="w-[118px] flex-none"><div className="text-[13.5px] font-extrabold" style=${{color:fg}}>${name}</div><div className="text-[12px] leading-snug text-gray-600">${role}</div></div>
+    <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">${files.map(f=>html`<code key=${f} className="rounded bg-white px-1.5 py-0.5 font-mono text-[12px] text-gray-800 ring-1 ring-gray-200">${f}</code>`)}</div>
+   </div></div>`;})}</div>
+  ${a.common?html`<div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12.5px] text-gray-500">공통 모델 ${a.common.map(f=>html`<code key=${f} className="rounded bg-gray-50 px-1.5 py-0.5 font-mono text-[12px] text-gray-700 ring-1 ring-gray-200">${f}</code>`)}</div>`:null}
+  <ul className="mt-3 space-y-1.5 text-[13.5px] leading-snug text-gray-700">${a.rules.map((t,i)=>html`<li key=${i} className="flex gap-2"><span className="mt-[7px] h-1 w-1 flex-none rounded-full bg-gray-400"></span><span>${t}</span></li>`)}</ul>
+  ${a.note?html`<p className="mt-2 text-[12.5px] text-gray-500">${a.note}</p>`:null}
+ </section>`;
+}
+function Rubric({groups}){
+ const [on,setOn]=useState({});
+ const sum=gs=>gs.reduce((t,g)=>t+g.items.reduce((u,[,p],i)=>u+(on[g.g+i]?p:0),0),0);
+ const total=sum(groups.filter(g=>!g.bonus)),extra=sum(groups.filter(g=>g.bonus));
+ const grade=total>=90?['A · 우수','#2b8a3e']:total>=75?['B · 통과','#1c7ed6']:total>=60?['C · 보완 후 통과','#d9480f']:['재제출','#868e96'];
+ return html`<section className="rounded-xl border border-gray-200 bg-white p-4">
+  <div className="flex flex-wrap items-end justify-between gap-2">
+   <div><h3 className="text-[15px] font-bold">평가 기준 (채점표)</h3><p className="text-[12.5px] text-gray-500">사수가 리뷰하며 체크해 보세요. 실제 버전에서는 Claude가 제출 코드로 1차 채점합니다.</p></div>
+   <div className="text-right"><div className="text-[26px] font-extrabold leading-none tabular-nums">${total}<span className="text-[14px] font-bold text-gray-400"> / 100</span>${extra?html`<span className="ml-1 text-[14px] font-bold text-flame">+${extra}</span>`:null}</div>
+    <div className="mt-1 text-[12.5px] font-bold" style=${{color:grade[1]}}>${grade[0]}</div></div>
+  </div>
+  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full transition-all" style=${{width:total+'%',background:grade[1]}}></div></div>
+  <div className="mt-3 space-y-3">${groups.map(g=>{const max=g.items.reduce((u,[,p])=>u+p,0),got=g.items.reduce((u,[,p],i)=>u+(on[g.g+i]?p:0),0);
+   return html`<div key=${g.g} className=${g.bonus?'rounded-lg bg-orange-50/60 p-2 -mx-1':''}><div className="flex justify-between text-[13px] font-bold"><span className=${g.bonus?'text-flame':''}>${g.g}</span><span className="tabular-nums text-gray-500">${g.bonus?'+'+got:got+' / '+max}</span></div>${g.bonus?html`<p className="text-[12px] text-gray-500">합격 판정에는 들어가지 않아요. 필수 기능을 모두 끝낸 경우에만 채점합니다.</p>`:null}
+    <ul className="mt-1">${g.items.map(([t,p],i)=>{const id=g.g+i,c=!!on[id];return html`<li key=${i}>
+     <button role="checkbox" aria-checked=${c} onClick=${()=>setOn({...on,[id]:!c})} className="flex min-h-[40px] w-full items-start gap-2.5 rounded-md px-1.5 py-2 text-left text-[13.5px] leading-snug hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt">
+      <span className=${'mt-px grid h-[18px] w-[18px] flex-none place-items-center rounded border '+(c?'border-cobalt bg-cobalt text-white':'border-gray-300 bg-white')}>${c?html`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>`:null}</span>
+      <span className=${'flex-1 '+(c?'text-gray-500':'text-gray-800')}>${t}</span><span className="flex-none tabular-nums text-[12.5px] font-bold text-gray-400">${g.bonus?'+':''}${p}점</span></button></li>`;})}</ul></div>`;})}</div>
+  ${total?html`<button onClick=${()=>setOn({})} className="mt-2 h-11 text-[13px] font-semibold text-gray-500 underline underline-offset-2">체크 모두 해제</button>`:null}
+ </section>`;
+}
+function Spec({s}){
+ const basic=s.lv==='초급';
+ return html`<div className="rise space-y-5">
+  <section>
+   <div className="flex flex-wrap items-center gap-2 text-[13px]">
+    <span className="rounded-full bg-ink px-2.5 py-0.5 font-semibold text-white">${s.label}</span>
+    <span className=${'rounded-full px-2.5 py-0.5 font-semibold '+(basic?'bg-indigo-50 text-cobalt':'bg-orange-50 text-flame')}>${s.lv}</span>
+    <span className="text-gray-500">${basic?'기초 UI 과제 · CRUD 없음':'실무 CRUD 과제 · DB 연동'}</span>
+   </div>
+   <h2 className="mt-3 text-[26px] leading-tight font-extrabold tracking-tight" style=${{textWrap:'balance'}}>${s.title}</h2>
+   <p className="mt-2.5 text-[15.5px] leading-relaxed text-gray-700">${s.scenario}</p>
+   <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-gray-200 bg-gray-200 text-[13px] sm:grid-cols-3">
+    <div className="bg-white px-3 py-2.5"><dt className="text-gray-500">화면 유형</dt><dd className="mt-0.5 font-bold">${s.layName}</dd></div>
+    <div className="bg-white px-3 py-2.5"><dt className="text-gray-500">예상 소요</dt><dd className="mt-0.5 font-bold">${s.days}</dd></div>
+    <div className="col-span-2 bg-white px-3 py-2.5 sm:col-span-1"><dt className="text-gray-500">산출물</dt><dd className="mt-0.5 font-bold">${basic?'실행 화면 캡처 + 소스 코드':DELIVER}</dd></div>
+   </dl>
+   <div className="mt-3 rounded-lg bg-gray-50 px-3.5 py-3 text-[14px]"><span className="font-bold">학습 목표</span><span className="text-gray-700"> · ${s.learn}</span></div>
+  </section>
+  <section>
+   <h3 className="text-[15px] font-bold">필수 사용 컨트롤</h3>
+   <div className="mt-2 flex flex-wrap gap-1.5">${s.controls.map(t=>html`<span key=${t} className="rounded-md border border-gray-300 bg-white px-2 py-1 font-mono text-[12.5px] text-gray-800">${t}</span>`)}</div>
+   <h3 className="mt-4 text-[15px] font-bold">핵심 기술</h3>
+   <div className="mt-2 flex flex-wrap gap-1.5">${s.tech.map(t=>html`<span key=${t} className=${'rounded-md px-2 py-1 text-[12.5px] font-semibold '+(basic?'bg-indigo-50 text-cobalt':'bg-orange-50 text-flame')}>${t}</span>`)}</div>
+  </section>
+  <${Arch} a=${s.arch} basic=${basic}/>
+  <section>
+   <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-bold">${basic?'기능 요구사항':'기능별 CRUD 요구사항'}<span className="rounded bg-ink px-1.5 py-px text-[11px] font-bold text-white">필수</span></h3>
+   <p className="mt-1 text-[13px] text-gray-500">이 항목만 완성하면 과제 통과 기준을 채울 수 있어요.</p>
+   <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+    ${s.reqs.map(c=>{const [fg,bg]=OPC[c.k];return html`<article key=${c.k} className="rounded-xl border border-gray-200 bg-white p-4">
+     <header className="flex items-center gap-2.5"><span className="grid h-7 w-7 place-items-center rounded-md text-[13px] font-extrabold" style=${{color:fg,background:bg}}>${c.k}</span><h4 className="text-[15px] font-bold">${c.name}</h4></header>
+     <ul className="mt-2.5 space-y-1.5 text-[13.5px] leading-snug text-gray-700">
+      ${c.items.map((t,i)=>html`<li key=${i} className="flex gap-2"><span className="mt-[7px] h-1 w-1 flex-none rounded-full bg-gray-400"></span><span>${t}</span></li>`)}
+     </ul></article>`;})}
+   </div>
+  </section>
+  ${s.opt.length?html`<section className="rounded-xl border border-dashed border-orange-300 bg-orange-50/40 p-4">
+   <h3 className="flex flex-wrap items-center gap-2 text-[15px] font-bold">선택 기능<span className="rounded bg-orange-100 px-1.5 py-px text-[11px] font-bold text-flame">가산점</span></h3>
+   <p className="mt-1 text-[13px] text-gray-600">편의 기능이에요. 필수 기능을 모두 끝내고 시간이 남을 때만 도전하세요. 하지 않아도 감점은 없어요.</p>
+   <ul className="mt-2 space-y-1.5 text-[13.5px] leading-snug text-gray-800">${s.opt.map((t,i)=>html`<li key=${i} className="flex gap-2"><span className="mt-[5px] h-2.5 w-2.5 flex-none rounded-sm border border-orange-300 bg-white"></span><span>${t}</span></li>`)}</ul>
+  </section>`:null}
+  ${s.hints?html`<section className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
+   <h3 className="text-[15px] font-bold">${s.label} 구현 힌트</h3>
+   <ul className="mt-2 space-y-1.5 text-[13.5px] leading-snug text-gray-800">${s.hints.map((t,i)=>html`<li key=${i} className="flex gap-2"><span className="mt-[7px] h-1 w-1 flex-none rounded-full bg-cobalt"></span><span>${t}</span></li>`)}</ul>
+  </section>`:null}
+  <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+   <h3 className="flex items-center gap-2 text-[15px] font-bold"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>예외 처리 조건</h3>
+   <ol className="mt-2.5 space-y-1.5 text-[13.5px] leading-snug text-gray-800">
+    ${s.exc.map((t,i)=>html`<li key=${i} className="flex gap-2.5"><span className="w-5 flex-none text-right font-bold text-amber-700 tabular-nums">${i+1}.</span><span>${t}</span></li>`)}
+   </ol>
+  </section>
+  ${s.db?html`<section className="rounded-xl border border-dashed border-gray-300 bg-white p-4">
+   <h3 className="text-[15px] font-bold">데이터·API 설계 가이드</h3>
+   <p className="mt-1 text-[13px] text-gray-500">테이블 명세는 주지 않아요. 아래 질문에 답하면서 직접 설계해 보세요.</p>
+   <ol className="mt-2.5 space-y-1.5 text-[13.5px] leading-snug text-gray-800">${s.db.items.map((t,i)=>html`<li key=${i} className="flex gap-2.5"><span className="w-5 flex-none text-right font-bold text-gray-400 tabular-nums">Q${i+1}</span><span>${t}</span></li>`)}</ol>
+   <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-[13px]"><b>제출:</b> ${s.db.out}</p>
+  </section>`:null}
+  <${Rubric} groups=${s.rubric}/>
+ </div>`;
+}
+
+/* ================= 앱 ================= */
+const STEPS={new:['선택 조건 분석','화면 유형과 업무 시나리오 정하기','개발 명세서 작성','예시 UI 목업 그리기'],next:['넘긴 아이디어와 다른 화면 유형 찾기','업무 시나리오 정하기','개발 명세서 다시 작성','예시 UI 목업 그리기']};
+const shuffle=a=>{const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;};
+function spread(first,rest){ // 같은 화면 유형이 연달아 나오지 않게 배치
+ const out=[first],pool=shuffle(rest);
+ while(pool.length){const last=IDEAS[out[out.length-1]].lay;let i=pool.findIndex(id=>IDEAS[id].lay!==last);if(i<0)i=0;out.push(pool.splice(i,1)[0]);}
+ return out;
+}
+const ST={proposed:['검토 중','text-cobalt bg-indigo-50 ring-indigo-200'],rejected:['넘김','text-gray-500 bg-gray-100 ring-gray-200'],adopted:['채택','text-emerald-700 bg-emerald-50 ring-emerald-200']};
+const Icon={
+ refresh:html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>`,
+ check:html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>`,
+ spark:html`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>`
+};
+const pool=lv=>IDEA_IDS.filter(id=>IDEAS[id].lv===lv);
+function App(){
+ const [fw,setFw]=useState('wpf'),[lv,setLv]=useState('초급');
+ const [hist,setHist]=useState([{id:'b_edu',fw:'wpf',lv:'초급',st:'proposed'}]);
+ const [cur,setCur]=useState(0);
+ const [loading,setLoading]=useState(null),[step,setStep]=useState(0),[note,setNote]=useState('');
+ const [sel,setSel]=useState(1),[ann,setAnn]=useState(true),[zoom,setZoom]=useState(false);
+ const seen=useRef({'wpf|초급':['b_edu']}),queues=useRef({}),timers=useRef([]);
+ useEffect(()=>()=>timers.current.forEach(clearTimeout),[]);
+
+ const nextIdea=(f,l,avoid)=>{
+  const key=f+'|'+l,ids=pool(l);
+  let q=queues.current[key];
+  if(!q){const first=FW[f].first[l];q=queues.current[key]=spread(first,ids.filter(x=>x!==first));}
+  const sk=seen.current[key]||(seen.current[key]=[]);
+  let id=q.find(x=>!sk.includes(x)),wrapped=false;
+  if(!id){wrapped=true;const rest=ids.filter(x=>x!==avoid);const first=rest.find(x=>!avoid||IDEAS[x].lay!==IDEAS[avoid].lay)||rest[0];
+   q=queues.current[key]=spread(first,rest.filter(x=>x!==first));seen.current[key]=[];id=q[0];}
+  seen.current[key].push(id);return {id,wrapped};
+ };
+ const propose=(f,l,mode)=>{
+  if(loading)return;timers.current.forEach(clearTimeout);
+  setLoading(mode);setStep(0);
+  const base=hist,c=cur;
+  timers.current=[setTimeout(()=>setStep(1),350),setTimeout(()=>setStep(2),750),setTimeout(()=>setStep(3),1150),setTimeout(()=>{
+   const {id,wrapped}=nextIdea(f,l,base[c]&&base[c].id);
+   setHist([...base.map((e,i)=>i===c&&e.st==='proposed'?{...e,st:'rejected'}:e),{id,fw:f,lv:l,st:'proposed'}]);
+   setCur(base.length);setFw(f);setLv(l);setSel(IDEAS[id].sel0!=null?IDEAS[id].sel0:1);setLoading(null);
+   setNote(wrapped?`${l} 샘플 아이디어 ${pool(l).length}개를 모두 봤어요. 순서를 바꿔 처음부터 다시 보여드려요.`:'');
+  },1500)];
+ };
+ const setStatus=(i,st)=>setHist(h=>h.map((e,j)=>j===i?{...e,st}:e));
+ const open=i=>{setCur(i);setFw(hist[i].fw);setLv(hist[i].lv);setSel(IDEAS[hist[i].id].sel0!=null?IDEAS[hist[i].id].sel0:1);setNote('');};
+
+ const e=hist[cur],s=compose(e.fw,e.id),dirty=fw!==e.fw||lv!==e.lv;
+ const m=renderMock(s,sel,setSel,ann);
+ const adoptedN=hist.filter(x=>x.st==='adopted').length;
+ const seenN=(seen.current[e.fw+'|'+e.lv]||[]).length,poolN=pool(e.lv).length;
+ const btn='inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-[14.5px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cobalt disabled:opacity-60';
+
+ return html`<div className="min-h-screen">
+  <header className="border-b border-gray-200 bg-white">
+   <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
+    <div className="flex items-center gap-2.5">
+     <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#16181d"/><rect x="7" y="8" width="11" height="16" rx="2" fill="#fff"/><path d="M9.5 12h6M9.5 15.5h6M9.5 19h4" stroke="#16181d" strokeWidth="1.6"/><rect x="20" y="8" width="6" height="16" rx="2" fill="#2450e6"/></svg>
+     <div><div className="text-[16px] font-extrabold leading-tight">온보딩 과제 생성기</div><div className="text-[12px] text-gray-500">신입사원 실무 과제 · 명세서 + 예시 화면</div></div>
+    </div>
+    <div className="flex items-center gap-2 text-[12px]">
+     ${adoptedN?html`<span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">채택한 과제 ${adoptedN}개</span>`:null}
+     <span className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-gray-500">프로토타입 · 샘플 데이터</span>
+    </div>
+   </div>
+  </header>
+
+  <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur">
+   <div className="mx-auto flex max-w-[1320px] flex-wrap items-end gap-x-4 gap-y-3 px-4 py-3.5 sm:px-6">
+    <label className="block w-full sm:w-56">
+     <span className="mb-1 block text-[13px] font-semibold text-gray-600">언어 / 프레임워크</span>
+     <span className="relative block">
+      <select id="fw" value=${fw} onChange=${ev=>setFw(ev.target.value)} className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-3 pr-9 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-cobalt">
+       ${ORDER.map(id=>html`<option key=${id} value=${id}>${FW[id].label}</option>`)}
+      </select>
+      <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+     </span>
+    </label>
+    <div>
+     <span className="mb-1 block text-[13px] font-semibold text-gray-600">난이도</span>
+     <div role="radiogroup" aria-label="난이도" className="inline-flex h-11 rounded-lg bg-gray-100 p-1">
+      ${[['초급','기초 UI'],['중급','실무 CRUD']].map(([v,sub])=>html`<button key=${v} role="radio" aria-checked=${lv===v} onClick=${()=>setLv(v)} className=${'flex min-w-[88px] items-baseline justify-center gap-1 rounded-md px-3 text-[15px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt '+(lv===v?'bg-white text-ink shadow-sm':'text-gray-500 hover:text-ink')}>${v}<span className="text-[11px] font-semibold text-gray-400">${sub}</span></button>`)}
+     </div>
+    </div>
+    <button id="gen" onClick=${()=>propose(fw,lv,'new')} disabled=${!!loading} className=${btn+' bg-cobalt px-5 text-white shadow-sm hover:bg-[#1c41c4]'}>
+     ${loading?html`<svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,.35)" strokeWidth="3"/><path d="M21 12a9 9 0 0 0-9-9" stroke="#fff" strokeWidth="3"/></svg>`:Icon.spark}
+     ${loading?'생성 중…':'과제 및 예시 화면 생성'}
+    </button>
+    ${dirty&&!loading?html`<p className="rise flex items-center gap-1.5 pb-3 text-[13px] text-flame"><span className="h-1.5 w-1.5 rounded-full bg-flame"></span>선택이 바뀌었어요. 생성 버튼을 누르면 새 아이디어를 제안해요.</p>`:null}
+   </div>
+  </div>
+
+  <main className="relative mx-auto max-w-[1320px] px-4 py-5 sm:px-6">
+   ${loading?html`<div className="absolute inset-0 z-10 flex items-start justify-center bg-white/80 pt-24 backdrop-blur-[2px]">
+    <div className="w-[min(380px,90%)] rounded-2xl border border-gray-200 bg-white p-5 shadow-xl">
+     <div className="text-[15px] font-bold">${loading==='next'?'다른 과제 아이디어를 찾는 중':`${FW[fw].label} · ${lv} 과제를 만드는 중`}</div>
+     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="progress h-full rounded-full bg-cobalt"></div></div>
+     <ul className="mt-4 space-y-2 text-[14px]">${STEPS[loading].map((t,i)=>html`<li key=${i} className=${'flex items-center gap-2.5 '+(i<=step?'text-ink':'text-gray-400')}>
+      ${i<step?html`<span className="text-emerald-600">${Icon.check}</span>`:i===step?html`<span className="grid h-4 w-4 place-items-center"><span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cobalt"></span></span>`:html`<span className="h-4 w-4 rounded-full border-2 border-gray-200"></span>`}
+      ${t}</li>`)}</ul>
+     <p className="mt-4 text-[12px] text-gray-500">실제 버전에서는 Claude API가 이 단계를 수행합니다.</p>
+    </div></div>`:null}
+
+   <section className=${'rise mb-5 rounded-2xl border p-4 sm:p-5 '+(e.st==='adopted'?'border-emerald-300 bg-emerald-50/50':'border-gray-200 bg-white')} key=${'d'+cur}>
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+     <div className="min-w-[220px] flex-1">
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-gray-500">
+       <span className="font-semibold">아이디어 ${cur+1}</span><span>·</span><span>${FW[e.fw].label} ${e.lv}</span>
+       <span className=${'rounded-full px-2 py-0.5 text-[12px] font-bold ring-1 '+ST[e.st][1]}>${ST[e.st][0]}</span>
+      </div>
+      <div className="mt-1 text-[19px] font-extrabold leading-snug">${s.title}</div>
+      <div className="mt-0.5 text-[13px] text-gray-500">화면 유형: <b className="text-gray-700">${s.layName}</b> · 요청 부서 예시: ${s.team} · ${e.lv} 샘플 ${seenN}/${poolN}</div>
+     </div>
+     <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+      ${e.st==='adopted'?html`
+       <button onClick=${()=>setStatus(cur,'proposed')} className=${btn+' flex-1 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 sm:flex-none'}>채택 취소</button>
+       <button onClick=${()=>propose(e.fw,e.lv,'next')} disabled=${!!loading} className=${btn+' flex-1 border border-gray-300 bg-white text-ink hover:bg-gray-50 sm:flex-none'}>${Icon.refresh}다른 아이디어도 보기</button>`
+      :html`
+       <button onClick=${()=>propose(e.fw,e.lv,'next')} disabled=${!!loading} className=${btn+' flex-1 border border-gray-300 bg-white text-ink hover:bg-gray-50 sm:flex-none'}>${Icon.refresh}${e.st==='rejected'?'다른 아이디어 보기':'넘기고 다른 아이디어'}</button>
+       <button onClick=${()=>setStatus(cur,'adopted')} className=${btn+' flex-1 bg-ink text-white hover:bg-black sm:flex-none'}>${Icon.check}${e.st==='rejected'?'다시 검토해 채택':'이 과제로 채택'}</button>`}
+     </div>
+    </div>
+    ${e.st==='adopted'?html`<p className="mt-3 text-[13px] text-emerald-800">채택한 과제예요. 실제 버전에서는 여기서 신입사원에게 배정하거나 문서로 내보내게 됩니다.</p>`:null}
+    ${note?html`<p className="mt-3 text-[13px] text-flame">${note}</p>`:null}
+    ${hist.length>1?html`<div className="mt-4 border-t border-gray-200 pt-3">
+     <div className="mb-2 text-[12.5px] font-semibold text-gray-500">제안 기록 · 눌러서 다시 보기</div>
+     <div className="flex gap-2 overflow-x-auto pb-1">${hist.map((h,i)=>{const I=IDEAS[h.id],t=I.title||DOM[I.dom].title;return html`<button key=${i} onClick=${()=>open(i)} aria-current=${i===cur} className=${'flex h-11 flex-none items-center gap-2 rounded-lg border px-3 text-left text-[13px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt '+(i===cur?'border-ink bg-white shadow-sm':'border-gray-200 bg-white hover:border-gray-400')}>
+      <span className="font-bold tabular-nums text-gray-400">${i+1}</span>
+      <span className=${'whitespace-nowrap font-semibold '+(h.st==='rejected'?'text-gray-400':'text-ink')}>${t}</span>
+      <span className="whitespace-nowrap text-[12px] text-gray-400">${FW[h.fw].label} ${h.lv}</span>
+      <span className=${'whitespace-nowrap rounded-full px-1.5 py-px text-[11px] font-bold ring-1 '+ST[h.st][1]}>${ST[h.st][0]}</span></button>`;})}</div>
+    </div>`:null}
+   </section>
+
+   <div key=${'v'+cur} className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+    <div className="order-2 lg:order-1">
+     <div className="mb-3 flex items-center gap-2 text-[13px] font-bold text-gray-500"><span className="h-px flex-1 bg-gray-200"></span>상세 개발 명세서<span className="h-px flex-1 bg-gray-200"></span></div>
+     <${Spec} s=${s}/>
+    </div>
+    <div className="order-1 lg:order-2">
+     <div className="lg:sticky lg:top-[108px]">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+        <div><div className="text-[15px] font-bold">구현 목표 예시 화면</div><div className="text-[12.5px] text-gray-500">${s.sub} · ${s.layName}</div></div>
+        <div className="flex items-center gap-2">
+         <button onClick=${()=>setAnn(!ann)} aria-pressed=${ann} className="inline-flex h-11 items-center gap-2 rounded-lg border border-gray-300 px-3 text-[13px] font-semibold hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt">
+          <span className=${'relative h-5 w-9 rounded-full transition '+(ann?'bg-flame':'bg-gray-300')}><span className=${'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all '+(ann?'left-[18px]':'left-0.5')}></span></span>컨트롤 이름
+         </button>
+         <button onClick=${()=>setZoom(!zoom)} aria-pressed=${zoom} className="h-11 rounded-lg border border-gray-300 px-3 text-[13px] font-semibold hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt">${zoom?'화면에 맞춤':'원본 크기'}</button>
+        </div>
+       </div>
+       <div className="blueprint overflow-x-auto">
+        <div className="rise p-2 sm:p-4" style=${{minWidth:zoom?'860px':'0'}}>${m.svg}</div>
+       </div>
+       <div className="border-t border-gray-200 px-4 py-3">
+        <p className="text-[13px] text-gray-500">목록·카드·단계·탭처럼 "(클릭)"이 붙은 부분은 눌러서 바뀌는 모습을 볼 수 있어요.</p>
+        ${ann?html`<ol className="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2">${m.list.map((a,i)=>html`<li key=${i} className="flex items-start gap-2.5 text-[13px] leading-snug">
+         <span className="grid h-5 w-5 flex-none place-items-center rounded-full bg-flame text-[11px] font-bold text-white">${i+1}</span>
+         <span><span className="font-mono text-[12.5px] font-medium text-ink">${a.n}</span><span className="block text-gray-500">${a.d}</span></span></li>`)}</ol>`:null}
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+   <p className="mt-8 border-t border-gray-100 pt-4 text-[12.5px] text-gray-500">프로토타입 샘플: 초급 ${pool('초급').length}개(화면 유형 6가지) · 중급 ${pool('중급').length}개(화면 유형 6가지) × 언어/프레임워크 5가지. 실제 버전은 Claude API가 넘긴 아이디어와 다른 화면 유형으로 매번 새 과제를 만듭니다. 회사명·인물·수치는 모두 예시입니다.</p>
+  </main>
+ </div>`;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+}
+
+</script>
+</body>
+</html>

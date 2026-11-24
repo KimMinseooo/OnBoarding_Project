@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+/* 색·글꼴 토큰 — 목업(mockup/onboarding-mockup.html)과 같은 값.
+   사내망 대비: 외부 웹폰트를 쓰지 않고 OS 기본 한글 글꼴을 씁니다. */
+@theme {
+  --color-ink: #16181d;
+  --color-cobalt: #2450e6;
+  --color-flame: #f0641e;
+  --font-sans: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+  --font-mono: 'SF Mono', Consolas, 'D2Coding', ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
