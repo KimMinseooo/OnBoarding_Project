@@ -25,6 +25,11 @@ export default tseslint.config(
     },
   },
   {
+    // 테스트는 일부러 잘못된 데이터를 만들기 위해 any를 허용
+    files: ['**/*.test.{ts,tsx}'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
+  {
     files: ['apps/server/**/*.ts', 'scripts/**/*.mjs', '*.js', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },

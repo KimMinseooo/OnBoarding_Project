@@ -1,0 +1,119 @@
+{
+  "id": "basic-form-rent",
+  "level": "basic",
+  "layout": "form",
+  "title": "비품 대여 신청서",
+  "team": "총무팀",
+  "problem": "총무팀은 노트북·빔프로젝터 같은 공용 비품 대여를 구두로 받아 누가 무엇을 빌렸는지 헷갈립니다. 대여 정보를 입력하고 제출 전에 확인하는 신청 화면을 만듭니다.",
+  "learningGoal": "입력 컨트롤 종류별로 값 읽기, 날짜 비교, 기본 입력 검증",
+  "entity": {
+    "name": "Rent",
+    "slug": "rent"
+  },
+  "logicClass": "RentValidator",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "입력",
+      "items": [
+        "신청자·비품 종류·대여일·반납 예정일 필수",
+        "수량은 1~5 범위의 숫자만 허용"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "미리보기",
+      "items": [
+        "입력값을 오른쪽에 요약해 표시",
+        "대여 기간(일수)을 자동 계산해 표시"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "제출",
+      "items": [
+        "[제출] 시 필수값 검증 후 완료 메시지"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "초기화",
+      "items": [
+        "[초기화] 시 날짜는 오늘로 다시 설정"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "대여 기간을 달력에 표시",
+    "자주 빌리는 비품 즐겨찾기"
+  ],
+  "exceptions": [
+    "반납 예정일이 대여일보다 빠르면 오류",
+    "외부 사용 선택 시 사유 입력 안내",
+    "대여 기간 7일 초과 시 경고"
+  ],
+  "mockup": {
+    "appTitle": "비품 대여 신청",
+    "data": {
+      "groupLabel": "대여 정보",
+      "fields": [
+        {
+          "label": "신청자",
+          "type": "text",
+          "value": "이하은",
+          "required": true
+        },
+        {
+          "label": "비품 종류",
+          "type": "combo",
+          "value": "빔프로젝터",
+          "required": true
+        },
+        {
+          "label": "수량",
+          "type": "num",
+          "value": "1",
+          "unit": "대"
+        },
+        {
+          "label": "대여일",
+          "type": "date",
+          "value": "2024-11-26",
+          "required": true
+        },
+        {
+          "label": "반납 예정일",
+          "type": "date",
+          "value": "2024-11-27",
+          "required": true
+        },
+        {
+          "label": "사용 장소",
+          "type": "radio",
+          "options": [
+            "사내",
+            "외부"
+          ],
+          "selected": 1
+        },
+        {
+          "label": "필요 부속",
+          "type": "check",
+          "options": [
+            "HDMI",
+            "리모컨",
+            "연장선"
+          ],
+          "selected": [
+            0,
+            1
+          ]
+        }
+      ],
+      "doneMessage": [
+        "신청 완료",
+        "빔프로젝터 1대 대여 신청이 접수되었습니다."
+      ]
+    }
+  }
+}

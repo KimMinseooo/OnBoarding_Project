@@ -1,9 +1,37 @@
 # 04. 과제 데이터 형식
 
-> 최종 수정일: 2026-11-24
-> 코드 위치: `packages/shared/schema`
+> 최종 수정일: 2026-11-25
+> 코드 위치: `packages/shared/src/schema`
 
-과제 하나(`Assignment`)의 JSON 형식입니다. Claude 출력, fixtures, 웹 화면이 모두 이 형식을 씁니다. **필드를 추가·변경할 때는 이 문서를 먼저 고칩니다.**
+형식은 두 가지입니다. **필드를 추가·변경할 때는 이 문서를 먼저 고칩니다.**
+
+| 형식 | 누가 만드나 | 어디서 쓰나 |
+|---|---|---|
+| `AssignmentDraft` | Claude (또는 fixtures) | 업무 내용만 담음, 프레임워크와 무관 |
+| `Assignment` | 조립기 `composeAssignment(draft, framework)` | 웹 화면이 표시하는 완성본 |
+
+조립기는 Draft에 [05](05_assignment-rules.md)·[06](06_frameworks.md)·[07](07_layouts.md)의 규칙 값을 더해 Assignment를 만듭니다. 그래서 Draft 하나로 프레임워크 5종의 과제가 모두 나옵니다. 어떤 필드를 누가 채우는지는 [08](08_prompt.md#역할-나누기-claude가-만드는-것-vs-서버가-채우는-것)에 있습니다.
+
+## AssignmentDraft (Claude 출력 · fixtures 형식)
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `id` | string | fixtures만 | 파일 이름과 같음 (예: `basic-calc-trip-calc`) |
+| `level` | `"basic"` \| `"intermediate"` | ✓ | |
+| `layout` | `LayoutId` | ✓ | 난이도에 맞는 화면 유형 |
+| `title`, `team` | string | ✓ | |
+| `problem` | string | ✓ | 업무 문제 1~2문장 (구현 방식 문장은 조립기가 붙임) |
+| `learningGoal` | string | 초급 | 중급은 07의 값 사용 |
+| `entity` | `{ name, slug }` | ✓ | `name`: PascalCase 영문 (예: `Asset`), `slug`: URL용 kebab-case |
+| `logicClass` | string | 초급 | 로직 클래스 이름 (예: `TripCostCalculator`) |
+| `businessRule` | string | 중급 | Business 계층에 둘 대표 업무 규칙 한 문장 |
+| `requirements` | `Requirement[]` | ✓ | 4개, **업무 항목만** (프레임워크 구현 포인트는 조립기가 붙임) |
+| `optionalFeatures` | string[] | ✓ | 1~4개, 업무 관련 선택 기능만 |
+| `exceptions` | string[] | ✓ | 정확히 3개, 업무 관련 조건만 |
+| `relationHint` | string | 중급 | 데이터 설계 가이드의 관계 고민 포인트 |
+| `mockup` | `{ appTitle, nav?, data }` | ✓ | `data`는 아래 화면 유형별 형식 |
+
+## Assignment (완성본)
 
 값을 무엇으로 채울지(배점, 기술 목록, 화면 유형별 구성)는 이 문서가 아니라 [05](05_assignment-rules.md)·[06](06_frameworks.md)·[07](07_layouts.md)이 정합니다.
 
@@ -144,4 +172,4 @@ type TableData = {
   }
 }
 ```
-전체 예시는 `fixtures/` 폴더를 봅니다.
+이 예시는 완성본(Assignment)입니다. `fixtures/`에는 Draft 형식으로 저장합니다.

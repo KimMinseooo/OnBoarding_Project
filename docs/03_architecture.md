@@ -1,6 +1,6 @@
 # 03. 아키텍처
 
-> 최종 수정일: 2026-11-24 (1단계 반영)
+> 최종 수정일: 2026-11-25 (2단계 반영)
 
 ## 핵심 설계 원칙
 
@@ -34,11 +34,13 @@ OnBoarding_Project/
 ├─ README.md
 ├─ docs/                      # 이 문서들
 ├─ mockup/                    # 확정 목업 (참고용)
-├─ fixtures/                  # 샘플 과제 JSON (Mock 모드·테스트용)
+├─ fixtures/                  # 샘플 과제 Draft JSON 16개 (Mock 모드·테스트용)
 ├─ packages/
 │  └─ shared/
-│     ├─ schema/              # zod 스키마 ← 04 문서
-│     └─ catalog/             # 프레임워크·화면 유형 상수 ← 06·07 문서
+│     └─ src/
+│        ├─ schema/           # zod 스키마 ← 04 문서
+│        ├─ catalog/          # 프레임워크·화면 유형·규칙 상수 ← 05·06·07 문서
+│        └─ compose/          # Draft + 프레임워크 → Assignment 조립기 (웹·서버 공용)
 ├─ apps/
 │  ├─ web/
 │  │  └─ src/
@@ -68,9 +70,10 @@ OnBoarding_Project/
 ```
 [웹] 생성 클릭
   → POST /api/assignments { framework, level, recent[] }
-[서버] USE_MOCK=true  → fixtures에서 조건에 맞는 과제 반환
-       USE_MOCK=false → 프롬프트 조립(08) → Claude 호출(구조화 출력)
-                      → zod 검증(04) → 실패 시 오류 내용 붙여 1회 재시도
+[서버] USE_MOCK=true  → fixtures에서 조건에 맞는 Draft 선택
+       USE_MOCK=false → 프롬프트 조립(08) → Claude 호출(구조화 출력) → Draft
+                      → Draft 검증(04) → 실패 시 오류 내용 붙여 1회 재시도
+       → composeAssignment(draft, framework) → Assignment 검증(04)
   → 200 { assignment } / 422 { error } / 502 { error }
 [웹] 결정 바·명세서·렌더러가 assignment 하나로 화면 구성
 ```

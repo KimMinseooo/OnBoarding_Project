@@ -1,0 +1,120 @@
+{
+  "id": "basic-form-apply",
+  "level": "basic",
+  "layout": "form",
+  "title": "사내 교육 신청서",
+  "team": "인재개발팀",
+  "problem": "인재개발팀은 사내 교육 신청을 메일로 받다 보니 필수 정보가 자주 빠집니다. 필요한 항목을 빠짐없이 입력받고, 제출 전에 입력 내용을 한눈에 확인하는 신청 화면을 만듭니다.",
+  "learningGoal": "입력 컨트롤 종류별로 값 읽기, 값 변경 이벤트 처리, 기본 입력 검증",
+  "entity": {
+    "name": "Apply",
+    "slug": "apply"
+  },
+  "logicClass": "ApplyValidator",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "입력",
+      "items": [
+        "이름·부서·교육 과정은 필수 입력",
+        "수강 방식은 하나만, 관심 분야는 여러 개 선택"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "미리보기",
+      "items": [
+        "입력값이 바뀔 때마다 오른쪽 미리보기에 즉시 반영",
+        "선택하지 않은 항목은 \"선택 안 함\"으로 표시"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "제출",
+      "items": [
+        "[제출] 시 필수값을 확인한 뒤 완료 메시지 표시",
+        "제출 후 입력란은 읽기 전용으로 전환"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "초기화",
+      "items": [
+        "[초기화] 시 확인 후 모든 입력값을 처음 상태로"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "요청 사항 입력 중 글자 수 실시간 표시",
+    "제출 내용을 클립보드로 복사"
+  ],
+  "exceptions": [
+    "이름에 숫자나 특수문자 입력 시 안내",
+    "희망 시작일이 오늘 이전이면 오류",
+    "요청 사항 200자 초과 입력 차단"
+  ],
+  "mockup": {
+    "appTitle": "교육 신청",
+    "data": {
+      "groupLabel": "신청 정보",
+      "fields": [
+        {
+          "label": "이름",
+          "type": "text",
+          "value": "김민지",
+          "required": true
+        },
+        {
+          "label": "소속 부서",
+          "type": "combo",
+          "value": "개발1팀",
+          "required": true
+        },
+        {
+          "label": "교육 과정",
+          "type": "combo",
+          "value": "Git 협업 실무",
+          "required": true
+        },
+        {
+          "label": "수강 방식",
+          "type": "radio",
+          "options": [
+            "온라인",
+            "오프라인"
+          ],
+          "selected": 1
+        },
+        {
+          "label": "관심 분야",
+          "type": "check",
+          "options": [
+            "백엔드",
+            "프론트",
+            "데이터"
+          ],
+          "selected": [
+            0,
+            2
+          ]
+        },
+        {
+          "label": "희망 시작일",
+          "type": "date",
+          "value": "2024-12-02"
+        },
+        {
+          "label": "요청 사항",
+          "type": "multi",
+          "value": [
+            "노트북 대여가 필요합니다."
+          ]
+        }
+      ],
+      "doneMessage": [
+        "제출 완료",
+        "Git 협업 실무 신청이 접수되었습니다."
+      ]
+    }
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "id": "basic-lookup-people",
+  "level": "basic",
+  "layout": "lookup",
+  "title": "사내 연락처 검색",
+  "team": "총무팀",
+  "problem": "새로 온 직원들이 누구에게 연락해야 할지 몰라 매번 주변에 묻습니다. 이름이나 부서로 동료를 찾고, 선택하면 연락처 상세를 보여 주는 조회 전용 화면을 만듭니다. 등록·수정 기능은 없습니다.",
+  "learningGoal": "목록 필터링, 선택 이벤트로 상세 표시, 조회 전용 화면 구성",
+  "entity": {
+    "name": "People",
+    "slug": "people"
+  },
+  "logicClass": "ContactSearch",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "검색",
+      "items": [
+        "입력 즉시 이름·부서에 검색어가 들어간 사람만 표시",
+        "부서 필터와 검색어를 함께 적용"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "목록",
+      "items": [
+        "이름·직급·부서·내선을 두 줄로 표시",
+        "검색 결과 인원 수 표시"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "상세",
+      "items": [
+        "목록에서 선택하면 오른쪽에 상세 정보 표시",
+        "선택이 없으면 안내 문구 표시"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "복사",
+      "items": [
+        "[이메일 복사]로 주소를 클립보드에 복사"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "검색어와 일치하는 글자 강조",
+    "최근 본 직원 목록"
+  ],
+  "exceptions": [
+    "검색 결과가 없으면 \"검색 결과가 없습니다\" 표시",
+    "검색어 앞뒤 공백 무시",
+    "영문은 대소문자 구분 없이 검색"
+  ],
+  "mockup": {
+    "appTitle": "사내 연락처",
+    "data": {
+      "people": [
+        {
+          "name": "김서준",
+          "position": "책임",
+          "dept": "경영지원팀",
+          "ext": "2141",
+          "mail": "seojun.kim@example.com",
+          "location": "본사 7층"
+        },
+        {
+          "name": "이하은",
+          "position": "선임",
+          "dept": "인사팀",
+          "ext": "2203",
+          "mail": "haeun.lee@example.com",
+          "location": "본사 6층"
+        },
+        {
+          "name": "박민재",
+          "position": "수석",
+          "dept": "개발1팀",
+          "ext": "3105",
+          "mail": "minjae.park@example.com",
+          "location": "R&D센터 3층"
+        },
+        {
+          "name": "최유나",
+          "position": "사원",
+          "dept": "디자인팀",
+          "ext": "3320",
+          "mail": "yuna.choi@example.com",
+          "location": "R&D센터 4층"
+        },
+        {
+          "name": "정시우",
+          "position": "책임",
+          "dept": "영업팀",
+          "ext": "2410",
+          "mail": "siwoo.jung@example.com",
+          "location": "본사 5층"
+        },
+        {
+          "name": "강도윤",
+          "position": "선임",
+          "dept": "IT지원팀",
+          "ext": "2077",
+          "mail": "doyun.kang@example.com",
+          "location": "본사 2층"
+        }
+      ]
+    }
+  }
+}

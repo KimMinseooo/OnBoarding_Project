@@ -1,7 +1,7 @@
 # 00. 개발 로드맵
 
-> 최종 수정일: 2026-11-24
-> 현재 위치: **1단계 완료** (2026-11-24) → 다음은 2단계
+> 최종 수정일: 2026-11-25
+> 현재 위치: **2단계 완료** (2026-11-25) → 다음은 3단계(화면 셸)·4단계(렌더러)
 
 진행 순서의 핵심은 **"데이터 형식 → 가짜 데이터로 화면 완성 → 진짜 API 연결"**입니다. 화면과 렌더러를 Mock 데이터로 먼저 끝내 두면, Claude API를 붙일 때는 "같은 형식의 JSON을 만들어 내는지"만 신경 쓰면 됩니다. API 비용도 아낄 수 있습니다.
 
@@ -36,12 +36,13 @@
 ## 2단계. 데이터 형식과 샘플 데이터
 
 **작업**
-- [04_assignment-schema](04_assignment-schema.md)를 `packages/shared/schema`에 zod 스키마로 옮김
-- [06_frameworks](06_frameworks.md)·[07_layouts](07_layouts.md)를 `packages/shared/catalog` 상수로 옮김
-- 목업 HTML 안의 샘플 과제 16개를 `fixtures/*.json`으로 옮김 (스키마 검증 통과해야 함)
+- [04_assignment-schema](04_assignment-schema.md)를 `packages/shared/src/schema`에 zod 스키마로 옮김 (Draft, Assignment)
+- [05](05_assignment-rules.md)·[06](06_frameworks.md)·[07](07_layouts.md)을 `packages/shared/src/catalog` 상수로 옮김
+- 조립기 `composeAssignment(draft, framework)` 구현 (`packages/shared/src/compose`)
+- 목업 HTML 안의 샘플 과제 16개를 `fixtures/*.json`(Draft 형식)으로 옮김
 
 **완료 기준**
-- 모든 fixture가 스키마 검증을 통과하는 테스트가 있다
+- fixture 16개 × 프레임워크 5종 = 80개 조합이 Draft·Assignment 검증을 모두 통과한다
 - 채점표 필수 합계 100점 검증이 테스트로 돌아간다
 
 ## 3단계. 화면 셸 (Mock 모드)

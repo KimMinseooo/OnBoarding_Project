@@ -28,9 +28,9 @@
 
 1. 웹 → `POST /api/assignments { framework, level, recent }`
 2. 서버가 **후보 화면 유형** 계산: 해당 난이도의 유형 중 `recent[0].layout`과 다른 것
-3. 프롬프트 조립 → Claude 호출 (구조화 출력: tool use, 입력 스키마 = Draft 스키마)
+3. 프롬프트 조립 → Claude 호출 (구조화 출력: tool use, 입력 스키마 = [Draft 스키마](04_assignment-schema.md#assignmentdraft-claude-출력--fixtures-형식))
 4. Draft 검증(zod) → 실패하면 오류 내용을 붙여 **1회 재시도** → 또 실패하면 502
-5. 서버가 나머지 필드를 채워 `Assignment` 완성 → 최종 스키마·추가 검증([04](04_assignment-schema.md#검증-규칙-스키마-외-추가-검사)) → 응답
+5. `composeAssignment`(packages/shared)가 나머지 필드를 채워 `Assignment` 완성 → 최종 스키마·추가 검증([04](04_assignment-schema.md#검증-규칙-스키마-외-추가-검사)) → 응답
 
 ## 프롬프트 구성
 
