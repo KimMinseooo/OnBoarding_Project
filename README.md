@@ -41,4 +41,4 @@ npm install              # Node 22.12 이상
 cp .env.example .env     # 처음 한 번 (Mock 모드는 키 없이 동작)
 npm run dev              # http://localhost:5173
 ```
-명령어 전체 목록은 [CLAUDE.md](CLAUDE.md#명령어), 폴더 구조는 [03_architecture](docs/03_architecture.md#폴더-구조)를 봅니다.
+사내 서버 배포는 [03_architecture](docs/03_architecture.md#배포). 명령어 전체 목록은 [CLAUDE.md](CLAUDE.md#명령어), 폴더 구조는 [03_architecture](docs/03_architecture.md#폴더-구조)를 봅니다.

@@ -71,6 +71,10 @@ export const TASKS = {
       return [npm('run', 'claude-check', '-w', '@obp/server', '--', String(rounds), ...(framework ? [framework] : []))];
     },
   },
+  'prod-check': {
+    desc: '배포 모드 점검: 웹 빌드 → 서버 하나로 화면+API(포트 3100) 응답 확인 후 종료',
+    steps: () => [npm('run', 'build'), { cmd: 'node', args: ['scripts/prod-check.mjs'] }],
+  },
   'runner-restart': {
     desc: '실행기를 새 코드로 다시 켜기 (창 없이 백그라운드, 출력 .runner/runner.log)',
     steps: () => [{ cmd: 'node', args: ['scripts/runner/restart.mjs', String(process.pid)] }],
