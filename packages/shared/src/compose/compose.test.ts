@@ -11,8 +11,8 @@ const combos = drafts.flatMap((d) => FRAMEWORK_IDS.map((fw) => [d.id!, fw] as [s
 const sum = (a: ReturnType<typeof composeAssignment>, bonus = false) =>
   a.rubric.filter((g) => !!g.bonus === bonus).reduce((t, g) => t + g.items.reduce((u, i) => u + i.points, 0), 0);
 
-describe('fixture × 프레임워크 80개 조합', () => {
-  it('80개다', () => expect(combos).toHaveLength(80));
+describe('fixture × 프레임워크 180개 조합', () => {
+  it('180개다', () => expect(combos).toHaveLength(180));
 
   it.each(combos)('%s × %s → 완성본 검증 통과, 채점표 필수 100점', (id, fw) => {
     const a = composeAssignment(draft(id), fw);

@@ -1,0 +1,175 @@
+{
+  "id": "basic-wizard-corporate-card",
+  "level": "basic",
+  "layout": "wizard",
+  "title": "법인카드 발급 신청",
+  "team": "재무팀",
+  "problem": "법인카드 발급 신청서를 종이로 받다 보니 한도나 사용 목적이 빠진 채 들어오는 일이 많습니다. 단계별로 필요한 정보만 입력하게 하고 마지막에 내용을 확인하는 신청 마법사를 만듭니다.",
+  "learningGoal": "단계별 화면 전환, 단계마다 입력 검증, 입력 값을 마지막 단계에 요약",
+  "entity": {
+    "name": "CardRequest",
+    "slug": "card-request"
+  },
+  "logicClass": "CardRequestWizard",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "단계 이동",
+      "items": [
+        "[이전]·[다음]으로 단계 이동, 진행률 표시",
+        "현재 단계의 필수값이 비면 [다음] 비활성화"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "한도 선택",
+      "items": [
+        "카드 종류에 따라 선택 가능한 한도 목록 변경"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "확인",
+      "items": [
+        "마지막 단계에서 입력 내용을 읽기 전용으로 요약",
+        "요약 항목을 누르면 해당 단계로 이동"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "제출",
+      "items": [
+        "동의 체크 후 [완료] 시 접수 메시지 표시"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "완료한 단계 번호를 눌러 바로 이동",
+    "입력 중 창을 닫으면 확인 대화상자 표시"
+  ],
+  "exceptions": [
+    "월 한도는 직급별 최대값을 넘을 수 없음",
+    "사용 목적은 10자 이상 입력",
+    "동의 체크 없이 [완료] 불가"
+  ],
+  "mockup": {
+    "appTitle": "법인카드 신청",
+    "data": {
+      "steps": [
+        "신청자",
+        "카드 정보",
+        "한도·용도",
+        "확인"
+      ],
+      "pages": [
+        [
+          {
+            "label": "이름",
+            "type": "text",
+            "value": "오세훈",
+            "required": true
+          },
+          {
+            "label": "소속 부서",
+            "type": "combo",
+            "value": "영업2팀",
+            "required": true
+          },
+          {
+            "label": "직급",
+            "type": "combo",
+            "value": "책임",
+            "required": true
+          },
+          {
+            "label": "사번",
+            "type": "text",
+            "value": "E20190415"
+          }
+        ],
+        [
+          {
+            "label": "카드 종류",
+            "type": "radio",
+            "options": [
+              "개인 지급형",
+              "부서 공용"
+            ],
+            "selected": 0
+          },
+          {
+            "label": "수령 방법",
+            "type": "combo",
+            "value": "사내 수령"
+          },
+          {
+            "label": "희망 수령일",
+            "type": "date",
+            "value": "2024-12-09"
+          },
+          {
+            "label": "해외 사용",
+            "type": "check",
+            "options": [
+              "해외 결제 허용"
+            ],
+            "selected": []
+          }
+        ],
+        [
+          {
+            "label": "월 한도",
+            "type": "combo",
+            "value": "300만 원",
+            "required": true
+          },
+          {
+            "label": "사용 목적",
+            "type": "text",
+            "value": "거래처 미팅 및 출장 경비",
+            "required": true
+          },
+          {
+            "label": "사용 기간",
+            "type": "radio",
+            "options": [
+              "상시",
+              "기간 지정"
+            ],
+            "selected": 0
+          },
+          {
+            "label": "결재자",
+            "type": "text",
+            "value": "김태윤 팀장"
+          }
+        ],
+        [
+          {
+            "label": "신청자",
+            "type": "ro",
+            "value": "오세훈 · 영업2팀 책임"
+          },
+          {
+            "label": "카드",
+            "type": "ro",
+            "value": "개인 지급형 · 사내 수령"
+          },
+          {
+            "label": "한도",
+            "type": "ro",
+            "value": "월 300만 원"
+          },
+          {
+            "label": "확인",
+            "type": "check",
+            "options": [
+              "법인카드 사용 규정을 확인했습니다"
+            ],
+            "selected": []
+          }
+        ]
+      ]
+    }
+  }
+}

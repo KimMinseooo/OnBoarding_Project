@@ -1,5 +1,5 @@
 import type { Field, MockupDataMap } from '@obp/shared';
-import { Btn, Card, Click, Combo, Dt, FieldRow, GH, Group, INK, MU, OptBadge, Progress, T, TB, bag, tw, type Pos, type Skin } from '../kit';
+import { Btn, Card, Click, Combo, Dt, FieldRow, GH, Group, INK, MU, OptBadge, Progress, T, TB, bag, clip, niceTop, tw, type Pos, type Skin } from '../kit';
 import { Dialog, Grid, List, Tabs, Tree } from '../widgets';
 import type { LayoutFn } from './types';
 
@@ -178,7 +178,8 @@ export const kanban: LayoutFn<'kanban'> = ({ k, d, sel, setSel }, b) => {
   const by = b.y + k.ch + 14;
   const DW = 212;
   const BW = b.w - DW - 14;
-  const cw = (BW - 20) / 3;
+  const nl = d.lanes.length;
+  const cw = (BW - (nl - 1) * 10) / nl;
   const CH = 68;
   const lanes = d.lanes.map((ln) => d.rows.map((r, i) => [r, i] as const).filter(([r]) => r[d.statusColumn] === ln));
   const most = Math.max(...lanes.map((l) => l.length));
@@ -208,7 +209,7 @@ export const kanban: LayoutFn<'kanban'> = ({ k, d, sel, setSel }, b) => {
         <Click onClick={() => setSel(ri)}>
           {Card(k, cx, cy, w, CH, { fill: '#fff', stroke: on ? k.accent : k.cardBd, sw: on ? 2 : 1 })}
           {T(cx + 10, cy + 17, r[0]!, { fs: 10.5, c: MU(k) })}
-          {T(cx + 10, cy + 36, r[d.titleColumn]!, { fs: 12, fw: 700, c: INK(k) })}
+          {T(cx + 10, cy + 36, clip(r[d.titleColumn]!, 12, w - 20, true), { fs: 12, fw: 700, c: INK(k) })}
           <rect x={cx + 10} y={cy + 45} width={tw(type, 10.5) + 14} height={16} rx={k.web ? 8 : 2} fill="#f1f3f5" />
           {T(cx + 17, cy + 57, type, { fs: 10.5, c: '#495057' })}
           <circle cx={cx + w - 16} cy={cy + 53} r={9} fill={col} fillOpacity={0.18} />
@@ -222,7 +223,7 @@ export const kanban: LayoutFn<'kanban'> = ({ k, d, sel, setSel }, b) => {
       add(
         <g>
           <rect x={lx + 8} y={py} width={cw - 16} height={40} rx={k.web ? 8 : 0} fill="none" stroke={k.accent} strokeDasharray="5 4" />
-          {T(lx + cw / 2, py + 24, '끌어 놓기 (선택 기능)', { fs: 11.5, a: 'middle', c: k.accent })}
+          {T(lx + cw / 2, py + 24, tw('끌어 놓기 (선택 기능)', 11.5) > cw - 28 ? '끌어 놓기 (선택)' : '끌어 놓기 (선택 기능)', { fs: 11.5, a: 'middle', c: k.accent })}
         </g>,
       );
     }
@@ -402,7 +403,7 @@ export const dashboard: LayoutFn<'dashboard'> = ({ k, d, sel, setSel }, b) => {
   const pw = c1 - 66;
   const n = d.chart.labels.length;
   const gw = pw / n;
-  const top = Math.max(100, Math.ceil(Math.max(...d.chart.a, ...d.chart.b) / 100) * 100);
+  const top = niceTop(Math.max(...d.chart.a, ...d.chart.b));
   [0, 0.25, 0.5, 0.75, 1].forEach((f) => {
     const yy = py + ph - f * ph;
     add(<line x1={px} x2={px + pw} y1={yy} y2={yy} stroke={k.web ? '#f0f1f3' : '#ececec'} />);

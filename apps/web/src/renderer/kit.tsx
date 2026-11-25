@@ -79,6 +79,21 @@ export const tw = (t: string, fs = 12) => {
   for (const c of t) w += /[ᄀ-퟿]/.test(c) ? fs * 0.98 : /[A-Z0-9@#%&]/.test(c) ? fs * 0.64 : fs * 0.54;
   return w;
 };
+/** 폭을 넘는 글자는 줄여서 "…"를 붙입니다 (굵은 글자는 bold=true) */
+export const clip = (t: string, fs: number, max: number, bold = false) => {
+  const width = (x: string) => tw(x, fs) * (bold ? 1.06 : 1);
+  if (width(t) <= max) return t;
+  let s = t;
+  while (s.length > 1 && width(`${s}…`) > max) s = s.slice(0, -1);
+  return `${s.trimEnd()}…`;
+};
+/** 차트 눈금: 4칸으로 나눠 떨어지는 보기 좋은 최대값 (1·2·2.5·5 × 10ⁿ 중 정수 간격, 최소 1) */
+export const niceTop = (max: number) => {
+  const raw = Math.max(max, 1) / 4;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  const step = Math.max(1, [1, 2, 2.5, 5, 10].map((m) => m * p).find((v) => v >= raw && Number.isInteger(v))!);
+  return step * 4;
+};
 
 export type Rect = { x: number; y: number; w: number; h: number };
 export type Pos = Record<string, Rect>;

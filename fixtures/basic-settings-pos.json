@@ -1,0 +1,160 @@
+{
+  "id": "basic-settings-pos",
+  "level": "basic",
+  "layout": "settings",
+  "title": "매장 POS 단말 설정",
+  "team": "매장운영팀",
+  "problem": "매장마다 POS 단말 설정이 달라 영수증 문구나 결제 방식이 제각각입니다. 매장 직원이 탭별로 설정을 바꾸고 적용·취소할 수 있는 설정 화면을 만듭니다.",
+  "learningGoal": "탭 컨트롤, 설정 값 객체로 바인딩, 적용·취소 시 값 복사와 되돌리기",
+  "entity": {
+    "name": "PosSetting",
+    "slug": "pos-setting"
+  },
+  "logicClass": "PosSettingStore",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "탭 전환",
+      "items": [
+        "매장 정보·결제·영수증 탭 전환",
+        "탭을 바꿔도 입력 중인 값 유지"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "적용",
+      "items": [
+        "[적용] 시 변경 값을 설정 객체에 반영",
+        "변경된 항목이 있을 때만 [적용] 활성화"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "취소",
+      "items": [
+        "[취소] 시 마지막으로 적용한 값으로 되돌리기"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "기본값",
+      "items": [
+        "[기본값 복원] 시 모든 탭을 기본값으로"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "영수증 미리보기 영역 표시",
+    "설정을 파일로 내보내기·가져오기"
+  ],
+  "exceptions": [
+    "매장 코드가 비어 있으면 [적용] 차단",
+    "영수증 하단 문구는 40자 초과 입력 불가",
+    "변경 사항이 있는 상태로 창을 닫으면 저장 여부 확인"
+  ],
+  "mockup": {
+    "appTitle": "POS 설정",
+    "data": {
+      "tabs": [
+        "매장 정보",
+        "결제",
+        "영수증"
+      ],
+      "panels": [
+        [
+          {
+            "label": "매장 코드",
+            "type": "text",
+            "value": "ST-0412"
+          },
+          {
+            "label": "매장명",
+            "type": "text",
+            "value": "강남역점"
+          },
+          {
+            "label": "영업 형태",
+            "type": "radio",
+            "options": [
+              "직영",
+              "가맹"
+            ],
+            "selected": 0
+          },
+          {
+            "label": "영업 시작 시각",
+            "type": "combo",
+            "value": "09:00"
+          }
+        ],
+        [
+          {
+            "label": "결제 수단",
+            "type": "check",
+            "options": [
+              "카드",
+              "현금",
+              "간편결제"
+            ],
+            "selected": [
+              0,
+              2
+            ]
+          },
+          {
+            "label": "할부 허용",
+            "type": "check",
+            "options": [
+              "5만 원 이상 할부 허용"
+            ],
+            "selected": [
+              0
+            ]
+          },
+          {
+            "label": "기본 결제",
+            "type": "combo",
+            "value": "카드"
+          },
+          {
+            "label": "서명 생략 금액",
+            "type": "slider",
+            "value": "5만 원",
+            "percent": 0.4
+          }
+        ],
+        [
+          {
+            "label": "출력 방식",
+            "type": "radio",
+            "options": [
+              "자동",
+              "물어보기",
+              "출력 안 함"
+            ],
+            "selected": 1
+          },
+          {
+            "label": "하단 문구",
+            "type": "text",
+            "value": "방문해 주셔서 감사합니다"
+          },
+          {
+            "label": "글자 크기",
+            "type": "slider",
+            "value": "보통",
+            "percent": 0.5
+          },
+          {
+            "label": "추가 출력",
+            "type": "check",
+            "options": [
+              "교환·환불 안내"
+            ],
+            "selected": []
+          }
+        ]
+      ]
+    }
+  }
+}

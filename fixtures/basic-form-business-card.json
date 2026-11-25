@@ -1,0 +1,117 @@
+{
+  "id": "basic-form-business-card",
+  "level": "basic",
+  "layout": "form",
+  "title": "명함 신청서",
+  "team": "총무팀",
+  "problem": "명함 신청을 메일로 받다 보니 직함 표기나 수량이 제각각이라 인쇄소에 다시 확인하는 일이 잦습니다. 정해진 항목을 입력하면 명함 문구를 미리 보여 주고 신청 내용을 정리해 주는 화면을 만듭니다.",
+  "learningGoal": "입력 컨트롤 값 읽기, 필수값 검증, 입력 내용을 문자열로 조합해 미리보기",
+  "entity": {
+    "name": "BusinessCard",
+    "slug": "business-card"
+  },
+  "logicClass": "BusinessCardValidator",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "입력",
+      "items": [
+        "이름·부서·직함은 필수 입력",
+        "영문 이름은 대문자로 자동 변환"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "미리보기",
+      "items": [
+        "입력할 때마다 미리보기 영역에 명함 문구 갱신",
+        "수량과 디자인 선택이 미리보기에 함께 표시"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "제출",
+      "items": [
+        "[제출] 시 필수값을 확인하고 완료 메시지 표시",
+        "제출 후 입력 화면 잠금"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "초기화",
+      "items": [
+        "[초기화] 시 모든 입력과 미리보기를 처음 상태로"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "휴대전화 번호 자동 하이픈 입력",
+    "미리보기를 실제 명함 비율의 카드 모양으로 표시"
+  ],
+  "exceptions": [
+    "수량은 100~500 범위, 100 단위만 허용",
+    "이메일 형식이 틀리면 입력란 아래 오류 표시",
+    "필수값이 비어 있으면 [제출] 비활성화"
+  ],
+  "mockup": {
+    "appTitle": "명함 신청",
+    "data": {
+      "groupLabel": "명함 정보",
+      "fields": [
+        {
+          "label": "이름",
+          "type": "text",
+          "value": "한지민",
+          "required": true
+        },
+        {
+          "label": "영문 이름",
+          "type": "text",
+          "value": "JIMIN HAN"
+        },
+        {
+          "label": "소속 부서",
+          "type": "combo",
+          "value": "마케팅팀",
+          "required": true
+        },
+        {
+          "label": "직함",
+          "type": "combo",
+          "value": "선임",
+          "required": true
+        },
+        {
+          "label": "디자인",
+          "type": "radio",
+          "options": [
+            "기본형",
+            "세로형"
+          ],
+          "selected": 0
+        },
+        {
+          "label": "추가 표기",
+          "type": "check",
+          "options": [
+            "휴대전화",
+            "팩스"
+          ],
+          "selected": [
+            0
+          ]
+        },
+        {
+          "label": "수량",
+          "type": "num",
+          "value": "200",
+          "unit": "매"
+        }
+      ],
+      "doneMessage": [
+        "신청 완료",
+        "명함 200매 신청이 접수되었습니다."
+      ]
+    }
+  }
+}

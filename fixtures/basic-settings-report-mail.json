@@ -1,0 +1,162 @@
+{
+  "id": "basic-settings-report-mail",
+  "level": "basic",
+  "layout": "settings",
+  "title": "보고서 자동 발송 설정",
+  "team": "경영지원팀",
+  "problem": "주간 매출 보고서를 매번 손으로 메일 발송하다 보니 받는 사람이 빠지거나 발송이 늦어집니다. 발송 일정, 받는 사람, 파일 형식을 정하는 설정 화면을 만듭니다.",
+  "learningGoal": "탭 화면 구성, 라디오·체크 상태를 설정 값으로 변환, 입력 검증",
+  "entity": {
+    "name": "ReportMailSetting",
+    "slug": "report-mail-setting"
+  },
+  "logicClass": "ReportMailSettingValidator",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "탭 전환",
+      "items": [
+        "발송 일정·받는 사람·형식 탭 전환"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "검증",
+      "items": [
+        "받는 사람 메일 주소를 쉼표로 나눠 형식 확인",
+        "잘못된 주소는 목록으로 안내"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "적용",
+      "items": [
+        "[적용] 시 설정 요약을 상태 표시줄에 표시",
+        "[확인]은 적용 후 창 닫기"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "되돌리기",
+      "items": [
+        "[취소] 시 마지막 적용 값으로, [기본값 복원] 시 기본값으로"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "다음 발송 예정 일시 계산해 표시",
+    "테스트 발송 버튼 (화면 안내만)"
+  ],
+  "exceptions": [
+    "받는 사람이 한 명도 없으면 [적용] 차단",
+    "매월 발송일은 1~28일만 선택 가능",
+    "첨부 형식을 하나도 고르지 않으면 안내"
+  ],
+  "mockup": {
+    "appTitle": "보고서 발송 설정",
+    "data": {
+      "tabs": [
+        "발송 일정",
+        "받는 사람",
+        "형식"
+      ],
+      "panels": [
+        [
+          {
+            "label": "발송 주기",
+            "type": "radio",
+            "options": [
+              "매일",
+              "매주",
+              "매월"
+            ],
+            "selected": 1
+          },
+          {
+            "label": "발송 요일",
+            "type": "combo",
+            "value": "월요일"
+          },
+          {
+            "label": "발송 시각",
+            "type": "combo",
+            "value": "08:30"
+          },
+          {
+            "label": "사용",
+            "type": "check",
+            "options": [
+              "자동 발송 사용"
+            ],
+            "selected": [
+              0
+            ]
+          }
+        ],
+        [
+          {
+            "label": "받는 사람",
+            "type": "text",
+            "value": "ceo@example.com, sales@example.com"
+          },
+          {
+            "label": "참조",
+            "type": "text",
+            "value": "finance@example.com"
+          },
+          {
+            "label": "제목 앞말",
+            "type": "text",
+            "value": "[주간 매출]"
+          },
+          {
+            "label": "알림",
+            "type": "check",
+            "options": [
+              "발송 실패 시 나에게 알림"
+            ],
+            "selected": [
+              0
+            ]
+          }
+        ],
+        [
+          {
+            "label": "첨부 형식",
+            "type": "check",
+            "options": [
+              "PDF",
+              "Excel"
+            ],
+            "selected": [
+              0
+            ]
+          },
+          {
+            "label": "본문 형식",
+            "type": "radio",
+            "options": [
+              "요약표",
+              "전체 표"
+            ],
+            "selected": 0
+          },
+          {
+            "label": "압축",
+            "type": "check",
+            "options": [
+              "10MB 넘으면 압축"
+            ],
+            "selected": []
+          },
+          {
+            "label": "이미지 품질",
+            "type": "slider",
+            "value": "보통",
+            "percent": 0.5
+          }
+        ]
+      ]
+    }
+  }
+}

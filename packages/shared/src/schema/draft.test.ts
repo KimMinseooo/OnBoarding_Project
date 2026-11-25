@@ -7,7 +7,13 @@ const clone = <T>(x: T): T => structuredClone(x);
 const byId = (id: string) => clone(fixtures.find((f) => f.file === `${id}.json`)!.json) as Record<string, any>;
 
 describe('fixtures (Draft 형식)', () => {
-  it('16개가 있다', () => expect(fixtures).toHaveLength(16));
+  it('36개가 있다 (화면 유형마다 3개, 서로 다른 제목)', () => {
+    expect(fixtures).toHaveLength(36);
+    const per = new Map<string, number>();
+    for (const f of fixtures) { const d = f.json as { layout: string }; per.set(d.layout, (per.get(d.layout) ?? 0) + 1); }
+    expect([...per.values()]).toEqual(Array(12).fill(3));
+    expect(new Set(fixtures.map((f) => (f.json as { title: string }).title)).size).toBe(36);
+  });
 
   it.each(fixtures.map((f) => [f.file, f.json]))('%s 가 Draft 검증을 통과하고 id가 파일 이름과 같다', (file, json) => {
     const d = AssignmentDraftSchema.parse(json);

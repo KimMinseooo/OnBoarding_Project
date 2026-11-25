@@ -1,0 +1,101 @@
+{
+  "id": "basic-lookup-safety-managers",
+  "level": "basic",
+  "layout": "lookup",
+  "title": "층별 안전관리자 조회",
+  "team": "안전환경팀",
+  "problem": "비상 상황에서 우리 층 안전관리자가 누구인지 몰라 대응이 늦어지는 일이 있었습니다. 이름·부서·근무지로 안전관리자를 찾아 내선번호를 바로 확인하는 조회 화면을 만듭니다.",
+  "learningGoal": "데이터 목록 필터링, 선택 변경 이벤트, 상세 영역 표시",
+  "entity": {
+    "name": "SafetyManager",
+    "slug": "safety-manager"
+  },
+  "logicClass": "SafetyManagerDirectory",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "검색",
+      "items": [
+        "이름 또는 부서 일부로 검색, 부서 드롭다운 필터",
+        "근무지(층) 이름으로도 검색"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "선택",
+      "items": [
+        "목록에서 선택하면 상세 정보 표시"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "복사",
+      "items": [
+        "[이메일 복사]로 메일 주소 복사 후 안내"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "결과 표시",
+      "items": [
+        "검색 결과 인원수와 선택한 사람 이름을 상태 표시줄에 표시"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "근무지별로 묶어서 목록 표시",
+    "최근 조회한 사람 3명 표시"
+  ],
+  "exceptions": [
+    "검색 결과가 없으면 안내 문구 표시",
+    "선택 없이 복사 버튼 클릭 시 안내",
+    "부서 필터와 검색어가 함께 있으면 두 조건을 모두 만족하는 사람만 표시"
+  ],
+  "mockup": {
+    "appTitle": "안전관리자 조회",
+    "data": {
+      "people": [
+        {
+          "name": "홍재석",
+          "position": "책임",
+          "dept": "안전환경팀",
+          "ext": "2010",
+          "mail": "jaeseok.hong@example.com",
+          "location": "본사 1~3층"
+        },
+        {
+          "name": "권소율",
+          "position": "선임",
+          "dept": "총무팀",
+          "ext": "2033",
+          "mail": "soyul.kwon@example.com",
+          "location": "본사 4~6층"
+        },
+        {
+          "name": "문태경",
+          "position": "책임",
+          "dept": "경영지원팀",
+          "ext": "2147",
+          "mail": "taekyung.moon@example.com",
+          "location": "본사 7~9층"
+        },
+        {
+          "name": "신하윤",
+          "position": "선임",
+          "dept": "생산1팀",
+          "ext": "4102",
+          "mail": "hayoon.shin@example.com",
+          "location": "제1공장"
+        },
+        {
+          "name": "유건우",
+          "position": "수석",
+          "dept": "생산2팀",
+          "ext": "4230",
+          "mail": "gunwoo.yu@example.com",
+          "location": "제2공장"
+        }
+      ]
+    }
+  }
+}

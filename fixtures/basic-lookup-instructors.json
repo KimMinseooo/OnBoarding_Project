@@ -1,0 +1,109 @@
+{
+  "id": "basic-lookup-instructors",
+  "level": "basic",
+  "layout": "lookup",
+  "title": "사내 강사 찾기",
+  "team": "인재개발팀",
+  "problem": "사내 교육을 열 때 강의할 수 있는 직원을 찾으려고 여러 팀에 문의하느라 시간이 오래 걸립니다. 이름이나 부서로 사내 강사를 찾아 연락처와 근무지를 바로 확인하는 조회 화면을 만듭니다.",
+  "learningGoal": "목록 검색과 필터링, 선택 항목을 상세 영역에 바인딩, 클립보드 사용",
+  "entity": {
+    "name": "Instructor",
+    "slug": "instructor"
+  },
+  "logicClass": "InstructorDirectory",
+  "requirements": [
+    {
+      "key": "1",
+      "name": "검색",
+      "items": [
+        "이름 일부를 입력하면 바로 목록 필터링",
+        "부서 드롭다운과 함께 조건 적용"
+      ]
+    },
+    {
+      "key": "2",
+      "name": "선택",
+      "items": [
+        "목록에서 선택하면 오른쪽에 상세 정보 표시"
+      ]
+    },
+    {
+      "key": "3",
+      "name": "복사",
+      "items": [
+        "[이메일 복사] 시 클립보드에 복사하고 안내"
+      ]
+    },
+    {
+      "key": "4",
+      "name": "결과 표시",
+      "items": [
+        "검색 결과 인원수를 상태 표시줄에 표시"
+      ]
+    }
+  ],
+  "optionalFeatures": [
+    "강의 가능 분야 태그로 추가 필터",
+    "검색어와 일치하는 글자 강조"
+  ],
+  "exceptions": [
+    "검색 결과가 없으면 \"찾는 직원이 없습니다\" 안내",
+    "선택 없이 [이메일 복사] 클릭 시 안내",
+    "검색어 앞뒤 공백은 무시"
+  ],
+  "mockup": {
+    "appTitle": "사내 강사 찾기",
+    "data": {
+      "people": [
+        {
+          "name": "윤서아",
+          "position": "수석",
+          "dept": "데이터팀",
+          "ext": "3412",
+          "mail": "seoa.yoon@example.com",
+          "location": "R&D센터 5층"
+        },
+        {
+          "name": "임도현",
+          "position": "책임",
+          "dept": "개발2팀",
+          "ext": "3188",
+          "mail": "dohyun.lim@example.com",
+          "location": "R&D센터 3층"
+        },
+        {
+          "name": "서예린",
+          "position": "선임",
+          "dept": "인재개발팀",
+          "ext": "2265",
+          "mail": "yerin.seo@example.com",
+          "location": "본사 6층"
+        },
+        {
+          "name": "남궁현",
+          "position": "책임",
+          "dept": "보안팀",
+          "ext": "2091",
+          "mail": "hyun.namgung@example.com",
+          "location": "본사 2층"
+        },
+        {
+          "name": "배지후",
+          "position": "선임",
+          "dept": "디자인팀",
+          "ext": "3327",
+          "mail": "jihu.bae@example.com",
+          "location": "R&D센터 4층"
+        },
+        {
+          "name": "조민호",
+          "position": "수석",
+          "dept": "재무팀",
+          "ext": "2156",
+          "mail": "minho.cho@example.com",
+          "location": "본사 7층"
+        }
+      ]
+    }
+  }
+}

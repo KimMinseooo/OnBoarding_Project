@@ -75,6 +75,14 @@ export const TASKS = {
     desc: '배포 모드 점검: 웹 빌드 → 서버 하나로 화면+API(포트 3100) 응답 확인 후 종료',
     steps: () => [npm('run', 'build'), { cmd: 'node', args: ['scripts/prod-check.mjs'] }],
   },
+  'tools-check': {
+    desc: '배포 도구 확인 (gh, vercel, git 원격·인증 설정 — 읽기만)',
+    steps: () => [
+      { cmd: 'sh', args: ['-c', 'command -v gh && gh --version | head -1 && gh auth status 2>&1 | head -4 || echo "gh 없음"'], allowFail: true },
+      { cmd: 'sh', args: ['-c', 'command -v vercel && vercel --version || echo "vercel CLI 없음"'], allowFail: true },
+      { cmd: 'sh', args: ['-c', 'echo "credential.helper=$(git config --get credential.helper)"; git remote -v; ls ~/.ssh/*.pub 2>/dev/null | sed "s|.*/||" || true'], allowFail: true },
+    ],
+  },
   'runner-restart': {
     desc: '실행기를 새 코드로 다시 켜기 (창 없이 백그라운드, 출력 .runner/runner.log)',
     steps: () => [{ cmd: 'node', args: ['scripts/runner/restart.mjs', String(process.pid)] }],

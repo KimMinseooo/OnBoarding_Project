@@ -34,7 +34,7 @@ OnBoarding_Project/
 ├─ README.md
 ├─ docs/                      # 이 문서들
 ├─ mockup/                    # 확정 목업 (참고용)
-├─ fixtures/                  # 샘플 과제 Draft JSON 16개 (Mock 모드·테스트용)
+├─ fixtures/                  # 샘플 과제 Draft JSON 36개 — 화면 유형마다 3개 (Mock 모드·테스트용)
 ├─ packages/
 │  └─ shared/
 │     └─ src/
