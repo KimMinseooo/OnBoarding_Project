@@ -87,6 +87,22 @@ export const TASKS = {
     desc: 'Vercel 빌드(.vercel/output) 생성 후 함수를 로컬에서 띄워 /api 확인',
     steps: () => [npm('run', 'vercel-build'), { cmd: 'node', args: ['scripts/vercel-check.mjs'] }],
   },
+  'git-remote': {
+    desc: 'GitHub 원격 저장소 연결 { url: "https://github.com/소유자/저장소" }',
+    steps: ({ url } = {}) => {
+      if (typeof url !== 'string' || !/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+?(\.git)?$/.test(url)) throw new Error('url은 https://github.com/소유자/저장소 형식이어야 합니다');
+      const u = url.endsWith('.git') ? url : `${url}.git`;
+      return [{ ...git('remote', 'remove', 'origin'), allowFail: true }, git('remote', 'add', 'origin', u), git('remote', '-v')];
+    },
+  },
+  'git-push': {
+    desc: 'main 브랜치를 origin(GitHub)에 올리기 — 로그인 정보가 없으면 바로 실패 (강제 푸시 없음)',
+    steps: () => [{ cmd: 'env', args: ['GIT_TERMINAL_PROMPT=0', 'git', 'push', '-u', 'origin', 'main'] }],
+  },
+  'git-bundle': {
+    desc: '저장소 전체(이력 포함)를 .runner/repo.bundle 파일 하나로 묶기 (원격 업로드용)',
+    steps: () => [git('bundle', 'create', '.runner/repo.bundle', 'main'), git('bundle', 'verify', '.runner/repo.bundle')],
+  },
   'runner-restart': {
     desc: '실행기를 새 코드로 다시 켜기 (창 없이 백그라운드, 출력 .runner/runner.log)',
     steps: () => [{ cmd: 'node', args: ['scripts/runner/restart.mjs', String(process.pid)] }],

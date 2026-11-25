@@ -112,11 +112,13 @@
 | `claude-check` | 실제 Claude API로 생성 점검 `{"rounds":3}` → 실패율·시간 요약, 결과물은 `.runner/out/claude-check/` (**비용 발생**, 사용자 확인 후 실행) |
 | `prod-check` | 배포 모드 점검: 웹 빌드 → 서버 하나로 화면+API(포트 3100) 확인 후 종료 |
 | `vercel-check` | Vercel 빌드(`.vercel/output`) 생성 후 함수를 로컬에서 띄워 `/api` 확인 |
+| `git-remote` / `git-push` | GitHub 원격 연결 `{"url":"https://github.com/소유자/저장소"}` / main 올리기 (로그인 정보 없으면 바로 실패) |
+| `git-bundle` | 저장소 전체를 `.runner/repo.bundle`로 묶기 (맥에 GitHub 로그인이 없을 때 Claude 쪽에서 올리는 용도) |
 | `runner-restart` | 실행기를 새 코드로 다시 켬 (맥 앞에 없을 때). 이후에는 창 없이 백그라운드로 돌고 출력은 `.runner/runner.log` |
 | `git-status` / `git-log` / `git-diff` | Git 확인 |
 | `git-commit` | 전체 변경 커밋 `{"message":"[단계N] 요약"}` |
 
-Git push는 허용 목록에 없습니다 (원격 저장소 연결 후 사용자가 직접).
+Git 원격 저장소 연결은 `git-remote`, 올리기는 `git-push`(main → origin, 강제 푸시 없음)로만 합니다. 사용자가 요청할 때만 올립니다.
 
 ## Git
 
