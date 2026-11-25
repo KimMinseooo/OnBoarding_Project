@@ -35,7 +35,7 @@ describe('내보내기', () => {
   it('사람이 확인할 샘플 파일을 남긴다 (.runner/out/export-samples, Git 제외)', () => {
     const dir = new URL('../../../../../.runner/out/export-samples/', import.meta.url);
     mkdirSync(dir, { recursive: true });
-    const pick = ['basic-calc-leave-calc-wpf', 'intermediate-kanban-expenses-react', 'intermediate-kanban-it-tickets-winform', 'intermediate-dashboard-sales-node'];
+    const pick = ['basic-calc-leave-calc-wpf', 'basic-wizard-corporate-card-winform', 'intermediate-grid-form-assets-wpf', 'intermediate-kanban-expenses-react', 'intermediate-dashboard-sales-node', 'intermediate-tree-grid-books-python'];
     for (const a of all.filter((x) => pick.includes(x.id))) {
       const { markdown, svg } = buildExport(a, new Date('2026-11-25'));
       writeFileSync(new URL(markdown.name, dir), markdown.text);
