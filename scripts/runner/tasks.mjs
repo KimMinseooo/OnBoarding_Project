@@ -83,6 +83,10 @@ export const TASKS = {
       { cmd: 'sh', args: ['-c', 'echo "credential.helper=$(git config --get credential.helper)"; git remote -v; ls ~/.ssh/*.pub 2>/dev/null | sed "s|.*/||" || true'], allowFail: true },
     ],
   },
+  'vercel-check': {
+    desc: 'Vercel 빌드(.vercel/output) 생성 후 함수를 로컬에서 띄워 /api 확인',
+    steps: () => [npm('run', 'vercel-build'), { cmd: 'node', args: ['scripts/vercel-check.mjs'] }],
+  },
   'runner-restart': {
     desc: '실행기를 새 코드로 다시 켜기 (창 없이 백그라운드, 출력 .runner/runner.log)',
     steps: () => [{ cmd: 'node', args: ['scripts/runner/restart.mjs', String(process.pid)] }],

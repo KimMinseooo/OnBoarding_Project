@@ -16,9 +16,15 @@ export type AppConfig = {
   version: string;
 };
 
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
-  version: string;
-};
+/** 서버 package.json의 버전 (Vercel처럼 하나의 파일로 묶여 실행되면 파일이 없으므로 APP_VERSION 또는 기본값) */
+function readVersion(): string {
+  try {
+    return (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
+  } catch {
+    return process.env.APP_VERSION ?? '0.1.0';
+  }
+}
+const pkg = { version: readVersion() };
 
 /** 환경 변수를 읽어 설정 객체를 만듭니다. USE_MOCK은 값이 없으면 true(키 없이도 동작). */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {

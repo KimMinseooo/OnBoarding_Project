@@ -111,6 +111,7 @@
 | `api-check` | 개발 서버에 고정된 샘플 생성 요청을 보내 응답 확인 |
 | `claude-check` | 실제 Claude API로 생성 점검 `{"rounds":3}` → 실패율·시간 요약, 결과물은 `.runner/out/claude-check/` (**비용 발생**, 사용자 확인 후 실행) |
 | `prod-check` | 배포 모드 점검: 웹 빌드 → 서버 하나로 화면+API(포트 3100) 확인 후 종료 |
+| `vercel-check` | Vercel 빌드(`.vercel/output`) 생성 후 함수를 로컬에서 띄워 `/api` 확인 |
 | `runner-restart` | 실행기를 새 코드로 다시 켬 (맥 앞에 없을 때). 이후에는 창 없이 백그라운드로 돌고 출력은 `.runner/runner.log` |
 | `git-status` / `git-log` / `git-diff` | Git 확인 |
 | `git-commit` | 전체 변경 커밋 `{"message":"[단계N] 요약"}` |

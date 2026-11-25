@@ -11,19 +11,22 @@ import { createClaudeClient } from './claude/client';
 import { createClaudeGenerator } from './services/claudeGenerator';
 import { createMockGenerator, type Generator } from './services/generator';
 
-type Deps = { generate?: Generator | null; webDist?: string | null };
+import type { AssignmentDraft } from '@obp/shared';
+
+type Deps = { generate?: Generator | null; webDist?: string | null; /** 샘플 과제 (기본: 저장소 fixtures/) */ drafts?: AssignmentDraft[] };
 
 /** 빌드된 웹 화면 위치 (npm run build 결과). 있으면 이 서버 하나로 화면과 API를 함께 제공 — docs/03_architecture.md#배포 */
 export const DEFAULT_WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../web/dist');
 
 /** Express 앱을 만듭니다. 테스트에서 포트를 열지 않고 쓸 수 있도록 listen과 분리했습니다. */
 export function createApp(config: AppConfig, deps: Deps = {}) {
+  const drafts = () => deps.drafts ?? loadDrafts();
   const generate =
     deps.generate !== undefined
       ? deps.generate
       : config.useMock
-        ? createMockGenerator(loadDrafts())
-        : createClaudeGenerator({ call: createClaudeClient(config), examples: loadDrafts() });
+        ? createMockGenerator(drafts())
+        : createClaudeGenerator({ call: createClaudeClient(config), examples: drafts() });
 
   const app = express();
   app.disable('x-powered-by');

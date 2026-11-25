@@ -131,3 +131,15 @@ npm start                 # http://서버주소:PORT (화면 + /api)
 - 점검: 작업 실행기 `prod-check` — 빌드 후 포트 3100으로 띄워 첫 화면·스크립트·과제 생성까지 확인하고 종료
 - 사내 서버 OS·프로세스 관리(서비스 등록, 재시작), HTTPS 종단, 사용자 인증은 8단계에서 정해지면 이 절에 기록합니다
 
+## Vercel 배포
+
+GitHub 저장소를 Vercel에 연결하면 `main`에 올릴 때마다 자동 배포됩니다 (D-024).
+
+- 빌드: `vercel.json` → `npm ci` → `npm run vercel-build`(`scripts/vercel-build.mjs`)가 Build Output API 형식의 `.vercel/output`을 만듦
+  - `static/`: 웹 빌드본 (`apps/web/dist`)
+  - `functions/api.func/`: Express 앱(`apps/server/src/vercel.ts`)을 esbuild로 묶은 파일 하나 + `fixtures/` 복사본
+  - 경로: `/api/*` → 함수, 그 외 정적 파일, 없는 화면 주소는 `index.html`
+- 환경 변수: Vercel 프로젝트 설정에서 넣음. 아무것도 넣지 않으면 **Mock 모드(비용 없음)**
+- 점검: 작업 실행기 `vercel-check` — 빌드 후 함수를 로컬에서 띄워 `/api` 확인
+- ⚠️ Vercel 주소는 누구나 접속할 수 있습니다. `USE_MOCK=false`로 실제 API를 켜기 전에 접속 제한(Vercel 비밀번호 보호, 사내 인증 등)을 먼저 정해야 합니다. 그렇지 않으면 외부 사람이 생성 버튼을 눌러도 비용이 나갑니다.
+
