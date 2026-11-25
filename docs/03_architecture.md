@@ -109,5 +109,9 @@ OnBoarding_Project/
 
 ## 저장
 
-- 1차: 제안 기록과 채택 상태를 localStorage에 저장 (키: `onboarding.history.v1`)
+- 1차: 제안 기록과 채택 상태를 localStorage에 저장 (키: `onboarding.history.v1`, 코드: `apps/web/src/app/storage.ts`)
+  - 저장 내용: `{ framework, level, current, history: [{ assignment, status }] }`
+  - 최대 60개. 넘으면 오래된 "검토 중·넘김"부터 지우고, 채택한 과제와 보고 있는 과제는 남김
+  - 불러올 때 과제를 공유 스키마로 다시 검사해 형식이 틀린 항목은 버림
+  - 저장 실패(공간 부족, 사생활 보호 모드)는 무시하고 화면은 계속 동작
 - 형식이 바뀌면 키 버전을 올리고, 이전 데이터는 버립니다

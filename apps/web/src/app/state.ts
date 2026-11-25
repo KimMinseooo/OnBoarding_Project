@@ -26,7 +26,8 @@ export type Action =
   | { type: 'failure'; message: string }
   | { type: 'dismissError' }
   | { type: 'setStatus'; index: number; status: ProposalStatus }
-  | { type: 'open'; index: number };
+  | { type: 'open'; index: number }
+  | { type: 'clear' };
 
 export const initialState: State = {
   framework: 'wpf',
@@ -72,6 +73,8 @@ export function reducer(state: State, action: Action): State {
         ...state,
         history: state.history.map((e, i) => (i === action.index ? { ...e, status: action.status } : e)),
       };
+    case 'clear':
+      return { ...state, history: [], current: -1, notice: null, error: null };
     case 'open': {
       const e = state.history[action.index];
       if (!e) return state;

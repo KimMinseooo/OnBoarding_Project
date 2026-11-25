@@ -134,6 +134,7 @@ export function renderMockup(a: Assignment, sel: number, setSel: (i: number) => 
 
   const svg = (
     <svg
+      xmlns="http://www.w3.org/2000/svg"
       viewBox={`-24 -20 ${W + 48} ${H + 48}`}
       width="100%"
       role="img"

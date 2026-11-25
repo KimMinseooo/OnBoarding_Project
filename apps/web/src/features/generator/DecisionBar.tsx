@@ -1,4 +1,5 @@
-import { FRAMEWORKS, LAYOUTS, LEVEL_LABEL } from '@obp/shared';
+import { useState } from 'react';
+import { FRAMEWORKS, LAYOUTS, LEVEL_LABEL, type Assignment } from '@obp/shared';
 import type { Entry, ProposalStatus } from '../../app/state';
 import { IconCheck, IconRefresh } from './icons';
 import { BTN, BTN_OUTLINE, STATUS_STYLE } from './ui';
@@ -11,10 +12,35 @@ type Props = {
   onNext: () => void;
   onStatus: (status: ProposalStatus) => void;
   onOpen: (index: number) => void;
+  onClear: () => void;
 };
 
+/** 내보내기 코드는 누를 때만 불러옵니다 (react-dom/server 포함) */
+async function exportFile(a: Assignment, kind: 'markdown' | 'svg') {
+  const { buildExport, download } = await import('../export/exportFiles');
+  download(buildExport(a)[kind]);
+}
+
+function ExportButtons({ a }: { a: Assignment }) {
+  const [error, setError] = useState('');
+  const run = (kind: 'markdown' | 'svg') => exportFile(a, kind).then(() => setError(''), (e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-emerald-200 pt-3">
+      <span className="mr-1 text-[13px] text-emerald-800">신입사원에게 전달할 파일</span>
+      <button type="button" onClick={() => void run('markdown')} className={`${BTN} bg-emerald-700 text-white hover:bg-emerald-800`}>
+        명세서 내보내기 (.md)
+      </button>
+      <button type="button" onClick={() => void run('svg')} className={`${BTN_OUTLINE} border-emerald-300 text-emerald-800`}>
+        예시 화면 내보내기 (.svg)
+      </button>
+      <span className="w-full text-[12.5px] text-gray-500">두 파일을 같은 폴더에 두면 명세서 안에 예시 화면이 함께 보여요.</span>
+      {error && <span role="alert" className="w-full text-[12.5px] text-red-700">내보내지 못했어요: {error}</span>}
+    </div>
+  );
+}
+
 /** 결정 바 + 제안 기록 — docs/02_ui-spec.md#4-결정-바 */
-export function DecisionBar({ history, current, loading, notice, onNext, onStatus, onOpen }: Props) {
+export function DecisionBar({ history, current, loading, notice, onNext, onStatus, onOpen, onClear }: Props) {
   const e = history[current];
   if (!e) return null;
   const a = e.assignment;
@@ -64,14 +90,17 @@ export function DecisionBar({ history, current, loading, notice, onNext, onStatu
           )}
         </div>
       </div>
-      {e.status === 'adopted' && (
-        <p className="mt-3 text-[13px] text-emerald-800">채택한 과제예요. 이후 버전에서 신입사원 배정과 내보내기를 지원합니다.</p>
-      )}
+      {e.status === 'adopted' && <ExportButtons a={a} />}
       {notice && <p className="mt-3 text-[13px] text-flame">{notice}</p>}
 
       {history.length > 1 && (
         <div className="mt-4 border-t border-gray-200 pt-3">
-          <div className="mb-2 text-[12.5px] font-semibold text-gray-500">제안 기록 · 눌러서 다시 보기</div>
+          <div className="mb-2 flex items-center justify-between gap-2 text-[12.5px] font-semibold text-gray-500">
+            <span>제안 기록 · 눌러서 다시 보기 (이 브라우저에 저장됨)</span>
+            <button type="button" onClick={onClear} disabled={loading} className="rounded px-2 py-1 font-medium text-gray-500 underline-offset-2 hover:text-red-700 hover:underline disabled:opacity-50">
+              기록 비우기
+            </button>
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {history.map((h, i) => {
               const [l, c] = STATUS_STYLE[h.status];
