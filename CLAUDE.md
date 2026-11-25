@@ -108,6 +108,7 @@
 | `audit` / `audit-fix` / `outdated` | 보안 점검, 호환 범위 수정, 새 버전 확인 |
 | `add` / `remove` | 패키지 추가·제거 `{"workspace":"@obp/server","packages":["이름@버전"],"dev":false}` |
 | `dev-start` / `dev-stop` / `health` | 개발 서버 켜기·끄기·응답 확인 |
+| `api-check` | 개발 서버에 고정된 샘플 생성 요청을 보내 응답 확인 |
 | `git-status` / `git-log` / `git-diff` | Git 확인 |
 | `git-commit` | 전체 변경 커밋 `{"message":"[단계N] 요약"}` |
 

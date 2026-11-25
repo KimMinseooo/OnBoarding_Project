@@ -54,6 +54,15 @@ export const TASKS = {
   },
   'dev-stop': { desc: '실행기가 켠 개발 서버 끄기', steps: () => [{ stop: 'dev' }] },
   health: { desc: '개발 서버 응답 확인', steps: () => [{ wait: DEV_URL, timeout: 5 }] },
+  'api-check': {
+    desc: '과제 생성 API에 고정된 샘플 요청 보내기 (Mock)',
+    steps: () => [
+      { wait: DEV_URL, timeout: 10 },
+      { post: 'http://localhost:5173/api/assignments', body: { framework: 'wpf', level: 'basic', recent: [] } },
+      { post: 'http://localhost:5173/api/assignments', body: { framework: 'react', level: 'intermediate', recent: [] } },
+      { get: 'http://localhost:5173/' },
+    ],
+  },
   'git-status': { desc: 'Git 상태', steps: () => [git('status', '--short', '--branch')] },
   'git-log': { desc: '최근 커밋 15개', steps: () => [git('log', '--oneline', '-15')] },
   'git-diff': { desc: '변경 파일 요약', steps: () => [git('diff', '--stat'), git('diff', '--cached', '--stat')] },

@@ -1,88 +1,116 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { HealthResponse } from '@obp/shared';
-import { fetchHealth } from '../api/client';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+import type { FrameworkId, Level } from '@obp/shared';
+import { generateAssignment } from '../api/client';
+import { ControlBar } from '../features/generator/ControlBar';
+import { DecisionBar } from '../features/generator/DecisionBar';
+import { LoadingOverlay } from '../features/generator/LoadingOverlay';
+import { SpecPanel } from '../features/spec/SpecPanel';
+import { MockupViewer } from '../renderer/MockupViewer';
+import { adoptedCount, currentEntry, initialState, isDirty, recentFor, reducer, type RequestMode } from './state';
 
-type Status =
-  | { state: 'loading' }
-  | { state: 'ok'; data: HealthResponse }
-  | { state: 'error'; message: string };
-
-/**
- * 1단계 골격 화면: 서버 연결 상태만 보여 줍니다.
- * 3단계에서 docs/02_ui-spec.md의 화면 셸로 교체합니다.
- */
+/** 화면 전체 배치 — docs/02_ui-spec.md#전체-배치 */
 export function App() {
-  const [status, setStatus] = useState<Status>({ state: 'loading' });
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
-  const check = useCallback(() => {
-    setStatus({ state: 'loading' });
-    fetchHealth()
-      .then((data) => setStatus({ state: 'ok', data }))
-      .catch((e: unknown) =>
-        setStatus({ state: 'error', message: e instanceof Error ? e.message : String(e) }),
-      );
+  const generate = useCallback(async (mode: RequestMode, framework: FrameworkId, level: Level) => {
+    const s = stateRef.current;
+    if (s.pending) return;
+    dispatch({ type: 'request', mode, framework, level });
+    try {
+      const res = await generateAssignment({ framework, level, recent: recentFor(s, framework, level) });
+      dispatch({ type: 'success', assignment: res.assignment, notice: res.notice });
+    } catch (e) {
+      dispatch({ type: 'failure', message: e instanceof Error ? e.message : String(e) });
+    }
   }, []);
 
+  // 처음 열면 기본 선택(WPF 초급)으로 첫 아이디어를 제안 (StrictMode의 두 번 실행 방지)
+  const started = useRef(false);
   useEffect(() => {
-    check();
-  }, [check]);
+    if (started.current) return;
+    started.current = true;
+    void generate('new', initialState.framework, initialState.level);
+  }, [generate]);
+
+  const entry = currentEntry(state);
+  const adopted = adoptedCount(state);
 
   return (
     <div className="min-h-screen bg-white text-ink">
-      <header className="border-b border-gray-200">
-        <div className="mx-auto flex max-w-[1320px] items-center gap-2.5 px-6 py-3">
-          <img src="/favicon.svg" alt="" width={30} height={30} />
-          <div>
-            <div className="text-[16px] font-extrabold leading-tight">온보딩 과제 생성기</div>
-            <div className="text-[12px] text-gray-500">개발 1단계 · 프로젝트 골격</div>
+      <header className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <img src="/favicon.svg" alt="" width={30} height={30} />
+            <div>
+              <h1 className="text-[16px] leading-tight font-extrabold">온보딩 과제 생성기</h1>
+              <div className="text-[12px] text-gray-500">신입사원 실무 과제 · 명세서 + 예시 화면</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[12px]">
+            {adopted > 0 && <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">채택한 과제 {adopted}개</span>}
+            <span className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-gray-500">개발 중 · Mock 데이터</span>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1320px] px-6 py-8">
-        <section className="max-w-md rounded-2xl border border-gray-200 p-5">
-          <h1 className="text-[17px] font-bold">서버 연결 상태</h1>
-          <p className="mt-1 text-[13px] text-gray-500">GET /api/health</p>
+      <ControlBar
+        framework={state.framework}
+        level={state.level}
+        loading={!!state.pending}
+        dirty={isDirty(state)}
+        onSelect={(v) => dispatch({ type: 'select', ...v })}
+        onGenerate={() => void generate('new', state.framework, state.level)}
+      />
 
-          <div className="mt-4 text-[15px]" role="status" aria-live="polite">
-            {status.state === 'loading' && <span className="text-gray-500">확인 중…</span>}
-            {status.state === 'ok' && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 font-bold text-emerald-700">
-                  <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                  연결됨
-                </span>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[12px] font-semibold">
-                  v{status.data.version}
-                </span>
-                <span
-                  className={
-                    'rounded-full px-2 py-0.5 text-[12px] font-semibold ' +
-                    (status.data.mock ? 'bg-orange-50 text-flame' : 'bg-indigo-50 text-cobalt')
-                  }
-                >
-                  {status.data.mock ? 'Mock 모드' : 'Claude API 모드'}
-                </span>
-              </div>
-            )}
-            {status.state === 'error' && (
-              <div className="text-red-700">
-                <b>연결 실패</b> · {status.message}
-                <p className="mt-1 text-[13px] text-gray-600">
-                  서버가 켜져 있는지 확인하세요 (루트에서 <code>npm run dev</code>).
-                </p>
-              </div>
-            )}
+      <main className="relative mx-auto min-h-[60vh] max-w-[1320px] px-4 py-5 sm:px-6">
+        {state.pending && <LoadingOverlay {...state.pending} />}
+
+        {state.error && (
+          <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-800">
+            <span>
+              <b>과제를 만들지 못했어요.</b> {state.error}
+            </span>
+            <button
+              type="button"
+              onClick={() => void generate('new', state.framework, state.level)}
+              className="h-11 rounded-lg bg-white px-4 font-bold text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+            >
+              다시 시도
+            </button>
           </div>
+        )}
 
-          <button
-            type="button"
-            onClick={check}
-            className="mt-5 h-11 rounded-lg bg-cobalt px-4 text-[14.5px] font-bold text-white hover:bg-[#1c41c4] focus:outline-none focus-visible:ring-2 focus-visible:ring-cobalt focus-visible:ring-offset-2"
-          >
-            다시 확인
-          </button>
-        </section>
+        {entry && (
+          <>
+            <DecisionBar
+              key={state.current}
+              history={state.history}
+              current={state.current}
+              loading={!!state.pending}
+              notice={state.notice}
+              onNext={() => void generate('next', entry.assignment.framework, entry.assignment.level)}
+              onStatus={(status) => dispatch({ type: 'setStatus', index: state.current, status })}
+              onOpen={(index) => dispatch({ type: 'open', index })}
+            />
+            <div key={entry.assignment.id} className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+              <div className="order-2 lg:order-1">
+                <div className="mb-3 flex items-center gap-2 text-[13px] font-bold text-gray-500">
+                  <span className="h-px flex-1 bg-gray-200" />
+                  상세 개발 명세서
+                  <span className="h-px flex-1 bg-gray-200" />
+                </div>
+                <SpecPanel a={entry.assignment} />
+              </div>
+              <div className="order-1 lg:order-2">
+                <div className="lg:sticky lg:top-[108px]">
+                  <MockupViewer key={entry.assignment.id} a={entry.assignment} />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

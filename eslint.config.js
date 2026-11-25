@@ -25,6 +25,11 @@ export default tseslint.config(
     },
   },
   {
+    // 렌더러는 SVG를 그리는 함수 모음이라 Fast Refresh 대상이 아닙니다
+    files: ['apps/web/src/renderer/**/*.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
     // 테스트는 일부러 잘못된 데이터를 만들기 위해 any를 허용
     files: ['**/*.test.{ts,tsx}'],
     rules: { '@typescript-eslint/no-explicit-any': 'off' },

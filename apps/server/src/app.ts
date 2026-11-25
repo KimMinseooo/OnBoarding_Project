@@ -1,15 +1,23 @@
 import express, { type ErrorRequestHandler } from 'express';
 import type { ApiError } from '@obp/shared';
 import type { AppConfig } from './config';
+import { loadDrafts } from './mock/fixtures';
+import { assignmentsRouter } from './routes/assignments';
 import { healthRouter } from './routes/health';
+import { createMockGenerator, type Generator } from './services/generator';
+
+type Deps = { generate?: Generator | null };
 
 /** Express 앱을 만듭니다. 테스트에서 포트를 열지 않고 쓸 수 있도록 listen과 분리했습니다. */
-export function createApp(config: AppConfig) {
+export function createApp(config: AppConfig, deps: Deps = {}) {
+  const generate = deps.generate !== undefined ? deps.generate : config.useMock ? createMockGenerator(loadDrafts()) : null;
+
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
 
   app.use(healthRouter(config));
+  app.use(assignmentsRouter(generate));
 
   // 정의되지 않은 /api 경로는 공통 오류 형식으로 404 — docs/03_architecture.md#서버-api
   app.use('/api', (_req, res) => {

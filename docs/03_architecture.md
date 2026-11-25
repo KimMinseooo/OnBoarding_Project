@@ -83,9 +83,11 @@ OnBoarding_Project/
 | 메서드·경로 | 요청 | 응답 |
 |---|---|---|
 | `GET /api/health` | — | `{ ok, mock }` |
-| `POST /api/assignments` | `{ framework, level, recent: [{ title, layout }] }` | `{ assignment }` |
+| `POST /api/assignments` | `{ framework, level, recent: [{ title, layout }] }` | `{ assignment, notice? }` |
 
-- `recent`: 최근 제안 최대 10개. 중복과 같은 화면 유형 연속을 피하는 데 씀
+- `recent`: 같은 프레임워크·난이도의 최근 제안(최신이 앞), 최대 20개. 중복과 같은 화면 유형 연속을 피하는 데 씀
+- `notice`: 사용자에게 보여 줄 안내 (예: Mock 샘플을 모두 봐서 처음부터 다시 보여 줄 때)
+- 요청 형식 오류는 400, Claude API 연동 전(`USE_MOCK=false`)에는 501
 - 오류 응답 형식: `{ code, message }`
 
 ## 환경 변수 (`.env.example`)
