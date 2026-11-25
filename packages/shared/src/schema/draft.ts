@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CRUD_KEYS, LevelSchema, Text, levelOfLayout } from './common';
+import { CRUD_KEYS, LevelSchema, Text, levelOfLayout, type LayoutId } from './common';
 import { layoutVariants } from './variants';
 
 // Claude 출력·fixtures 형식 — docs/04_assignment-schema.md#assignmentdraft-claude-출력--fixtures-형식
@@ -30,8 +30,14 @@ const draftShape = {
   relationHint: Text.optional(),
 };
 
+const draftMockupShape = { appTitle: Text, nav: z.array(Text).min(1).max(6).optional() };
+
+/** 화면 유형별 Draft 형식 (Claude 도구 스키마를 만들 때 씀 — docs/08_prompt.md) */
+export const DRAFT_VARIANTS = layoutVariants(draftShape, draftMockupShape);
+export const draftVariantOf = (layout: LayoutId) => DRAFT_VARIANTS.find((v) => v.shape.layout.value === layout)!;
+
 export const AssignmentDraftSchema = z
-  .discriminatedUnion('layout', layoutVariants(draftShape, { appTitle: Text, nav: z.array(Text).min(1).max(6).optional() }))
+  .discriminatedUnion('layout', DRAFT_VARIANTS)
   .superRefine((d, ctx) => {
     const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
     if (levelOfLayout(d.layout) !== d.level) issue(`화면 유형 ${d.layout}은(는) ${d.level} 난이도에 쓸 수 없습니다`);

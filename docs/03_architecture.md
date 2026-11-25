@@ -59,7 +59,7 @@ OnBoarding_Project/
 │     └─ src/
 │        ├─ routes/           # /api/*
 │        ├─ services/         # 생성 흐름(조립 → 호출 → 검증 → 재시도)
-│        ├─ claude/           # SDK 래퍼
+│        ├─ claude/           # Claude API 호출 (fetch, D-020)
 │        ├─ prompts/          # 프롬프트 템플릿 ← 08 문서
 │        └─ mock/             # fixtures 반환
 └─ .env.example
@@ -74,7 +74,7 @@ OnBoarding_Project/
        USE_MOCK=false → 프롬프트 조립(08) → Claude 호출(구조화 출력) → Draft
                       → Draft 검증(04) → 실패 시 오류 내용 붙여 1회 재시도
        → composeAssignment(draft, framework) → Assignment 검증(04)
-  → 200 { assignment } / 422 { error } / 502 { error }
+  → 200 { assignment } / 422 INVALID_OUTPUT (재시도 후에도 검증 실패) / 502 UPSTREAM_ERROR (Claude API 실패)
 [웹] 결정 바·명세서·렌더러가 assignment 하나로 화면 구성
 ```
 
@@ -87,7 +87,7 @@ OnBoarding_Project/
 
 - `recent`: 같은 프레임워크·난이도의 최근 제안(최신이 앞), 최대 20개. 중복과 같은 화면 유형 연속을 피하는 데 씀
 - `notice`: 사용자에게 보여 줄 안내 (예: Mock 샘플을 모두 봐서 처음부터 다시 보여 줄 때)
-- 요청 형식 오류는 400, Claude API 연동 전(`USE_MOCK=false`)에는 501
+- 요청 형식 오류는 400 `BAD_REQUEST`, 생성 결과 검증 실패는 422 `INVALID_OUTPUT`, Claude API 실패는 502 `UPSTREAM_ERROR` ([08](08_prompt.md#요청-흐름))
 - 오류 응답 형식: `{ code, message }`
 
 ## 환경 변수 (`.env.example`)
@@ -96,13 +96,16 @@ OnBoarding_Project/
 |---|---|
 | `ANTHROPIC_API_KEY` | 서버에서만 사용 |
 | `ANTHROPIC_MODEL` | 사용할 모델 ID (코드에 고정하지 않음) |
+| `ANTHROPIC_BASE_URL` | 비우면 공식 주소. 사내 게이트웨이·프록시를 거칠 때 바꿈 (D-020) |
+| `ANTHROPIC_TIMEOUT_MS` | Claude 호출 1회 제한 시간, 기본 60000 |
 | `USE_MOCK` | `true`면 fixtures 사용 |
 | `PORT` | 서버 포트 |
 
 ## 네트워크 (사내망 대비)
 
 - 웹은 외부 CDN·웹폰트를 쓰지 않습니다. 모든 라이브러리는 빌드에 포함하고, 글꼴은 OS 기본 한글 글꼴을 씁니다.
-- 외부로 나가는 통신은 **서버의 Claude API 호출 하나**뿐입니다. 사내망 조건(방화벽 예외, 프록시, 클라우드 경유 등)이 정해지면 이 절에 기록합니다.
+- 외부로 나가는 통신은 **서버의 Claude API 호출 하나**뿐입니다 (`POST {ANTHROPIC_BASE_URL}/v1/messages`). 사내망 조건(방화벽 예외, 프록시, 클라우드 경유 등)이 정해지면 이 절에 기록합니다.
+- 사내 게이트웨이를 쓰면 `ANTHROPIC_BASE_URL`만 바꿉니다. Node 기본 fetch는 `HTTPS_PROXY`를 자동으로 따르지 않으므로, 프록시만 허용되는 망이면 이 부분을 추가로 구현해야 합니다.
 
 ## 저장
 

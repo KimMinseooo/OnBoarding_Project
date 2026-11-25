@@ -1,7 +1,7 @@
 # 08. Claude API 프롬프트 설계
 
-> 최종 수정일: 2026-11-24
-> 코드 위치: `apps/server/src/prompts`, `apps/server/src/services`
+> 최종 수정일: 2026-11-25
+> 코드 위치: `apps/server/src/prompts/assignment.ts`(문장 틀), `apps/server/src/services/claudeGenerator.ts`(흐름), `apps/server/src/claude/client.ts`(호출)
 
 ## 역할 나누기: Claude가 만드는 것 vs 서버가 채우는 것
 
@@ -9,7 +9,7 @@
 
 | 필드 ([04](04_assignment-schema.md)) | 만드는 쪽 | 비고 |
 |---|---|---|
-| `layout` | Claude | 서버가 준 후보 목록 안에서 선택 |
+| `layout` | 서버 | 첫 제안 규칙·직전과 다른 유형 중 선택 (D-021) |
 | `title`, `team`, `scenario`(업무 문제 부분) | Claude | |
 | 업무 엔터티 이름 (`Entity`, `slug`, 초급 `Logic` 클래스명) | Claude | 폴더 템플릿에 넣는 값 |
 | `requirements`의 업무 항목 | Claude | 서버가 프레임워크 구현 포인트를 뒤에 붙임 (중급) |
@@ -27,10 +27,12 @@
 ## 요청 흐름
 
 1. 웹 → `POST /api/assignments { framework, level, recent }`
-2. 서버가 **후보 화면 유형** 계산: 해당 난이도의 유형 중 `recent[0].layout`과 다른 것
-3. 프롬프트 조립 → Claude 호출 (구조화 출력: tool use, 입력 스키마 = [Draft 스키마](04_assignment-schema.md#assignmentdraft-claude-출력--fixtures-형식))
-4. Draft 검증(zod) → 실패하면 오류 내용을 붙여 **1회 재시도** → 또 실패하면 502
-5. `composeAssignment`(packages/shared)가 나머지 필드를 채워 `Assignment` 완성 → 최종 스키마·추가 검증([04](04_assignment-schema.md#검증-규칙-스키마-외-추가-검사)) → 응답
+2. 서버가 **화면 유형 하나**를 고름: 첫 제안은 프레임워크의 첫 유형([06](06_frameworks.md#요약)), 이후는 같은 난이도에서 `recent[0].layout`과 다른 유형 중 무작위
+3. 프롬프트 조립 → Claude 호출 (구조화 출력: tool use 강제, 입력 스키마 = 그 유형의 [Draft 스키마](04_assignment-schema.md#assignmentdraft-claude-출력--fixtures-형식)에서 `id`·`level`·`layout`을 빼고 난이도별 필수 항목을 필수로 바꾼 것)
+4. Draft 검증(zod) + 최근 제안과 제목 중복 검사 → `composeAssignment`(packages/shared)로 조립 → 최종 스키마·추가 검증([04](04_assignment-schema.md#검증-규칙-스키마-외-추가-검사))
+5. 어디서든 실패하면 오류 목록을 **도구 결과(is_error)**로 붙여 **1회 재시도** → 또 실패하면 **422** `INVALID_OUTPUT`
+6. Claude API 자체 실패(연결·인증·시간 초과·과부하)는 **502** `UPSTREAM_ERROR` (재시도하지 않음)
+7. 서버 로그에 유형·회차·토큰 수·걸린 시간을 남김 (내용은 남기지 않음)
 
 ## 프롬프트 구성
 
@@ -63,10 +65,13 @@
 
 요구사항 카드 형식: {초급: 기능 이름 4개 | 중급: R·C·U·D 4개}
 mockup.data 형식: {선택한 유형의 04 형식 — 도구 스키마로 전달}
+
+형식 참고용 예시: {같은 유형 fixture 1개 JSON — 내용은 베끼지 말라고 명시}
 ```
 
 - 07·05·06의 내용은 **카탈로그 코드에서 읽어 삽입**합니다. 문서 문장을 프롬프트 파일에 복사하지 않습니다.
 - 모델은 환경 변수 `ANTHROPIC_MODEL`로 지정합니다.
+- 프롬프트 캐싱은 쓰지 않습니다. 시스템 프롬프트가 캐시 최소 길이보다 짧고, 도구 스키마가 유형마다 달라 캐시 앞부분이 매번 바뀝니다. 비용이 문제가 되면 7단계에서 다시 봅니다.
 
 ## 출력 검증 실패 시 재시도 메시지
 

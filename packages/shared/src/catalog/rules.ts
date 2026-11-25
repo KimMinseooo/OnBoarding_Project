@@ -3,6 +3,11 @@ import type { CrudKey, FrameworkId, LayoutId, Level } from '../schema/common';
 // 과제 정책 값 — 기준 문서: docs/05_assignment-rules.md (값을 바꾸면 문서도 함께)
 
 export const LEVEL_LABEL: Record<Level, string> = { basic: '초급', intermediate: '중급' };
+/** 난이도 한 줄 정의 (프롬프트에 삽입) — 05#난이도-정의 */
+export const LEVEL_SUMMARY: Record<Level, string> = {
+  basic: '컨트롤 사용법과 이벤트·바인딩 연습. CRUD·DB 없이 화면 안에서만 동작하고, 화면과 로직 클래스를 분리한다.',
+  intermediate: '실무 레이아웃 패턴과 조회·등록·수정·삭제 흐름 연습. DB를 직접 설계해 쓰고 3-tier 구조로 만든다.',
+};
 export const CRUD_NAMES: Record<CrudKey, string> = { R: '조회 / 검색', C: '신규 등록', U: '수정', D: '삭제' };
 
 /** 예상 소요 기간 (필수 기능 기준) — 05#예상-소요-기간 */

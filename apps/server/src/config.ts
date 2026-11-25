@@ -9,6 +9,10 @@ export type AppConfig = {
   useMock: boolean;
   anthropicApiKey: string;
   anthropicModel: string;
+  /** 사내 게이트웨이·프록시를 거칠 때 바꿈 (기본: 공식 주소) */
+  anthropicBaseUrl: string;
+  /** Claude 호출 1회 제한 시간(ms) */
+  anthropicTimeoutMs: number;
   version: string;
 };
 
@@ -24,6 +28,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     useMock,
     anthropicApiKey: env.ANTHROPIC_API_KEY ?? '',
     anthropicModel: env.ANTHROPIC_MODEL ?? '',
+    anthropicBaseUrl: (env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, ''),
+    anthropicTimeoutMs: Number(env.ANTHROPIC_TIMEOUT_MS || 60000),
     version: pkg.version,
   };
   if (!useMock && (!config.anthropicApiKey || !config.anthropicModel)) {

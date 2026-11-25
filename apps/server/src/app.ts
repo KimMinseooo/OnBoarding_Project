@@ -4,13 +4,20 @@ import type { AppConfig } from './config';
 import { loadDrafts } from './mock/fixtures';
 import { assignmentsRouter } from './routes/assignments';
 import { healthRouter } from './routes/health';
+import { createClaudeClient } from './claude/client';
+import { createClaudeGenerator } from './services/claudeGenerator';
 import { createMockGenerator, type Generator } from './services/generator';
 
 type Deps = { generate?: Generator | null };
 
 /** Express 앱을 만듭니다. 테스트에서 포트를 열지 않고 쓸 수 있도록 listen과 분리했습니다. */
 export function createApp(config: AppConfig, deps: Deps = {}) {
-  const generate = deps.generate !== undefined ? deps.generate : config.useMock ? createMockGenerator(loadDrafts()) : null;
+  const generate =
+    deps.generate !== undefined
+      ? deps.generate
+      : config.useMock
+        ? createMockGenerator(loadDrafts())
+        : createClaudeGenerator({ call: createClaudeClient(config), examples: loadDrafts() });
 
   const app = express();
   app.disable('x-powered-by');

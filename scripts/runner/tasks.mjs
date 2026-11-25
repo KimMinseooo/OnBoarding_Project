@@ -63,6 +63,14 @@ export const TASKS = {
       { get: 'http://localhost:5173/' },
     ],
   },
+  'claude-check': {
+    desc: '실제 Claude API로 5종×2난이도×회수 생성 점검 { rounds?: 1~3, framework? } (비용 발생)',
+    steps: ({ rounds = 3, framework } = {}) => {
+      if (![1, 2, 3].includes(rounds)) throw new Error('rounds는 1~3');
+      if (framework !== undefined && !['wpf', 'winform', 'react', 'python', 'node'].includes(framework)) throw new Error('framework 값 오류');
+      return [npm('run', 'claude-check', '-w', '@obp/server', '--', String(rounds), ...(framework ? [framework] : []))];
+    },
+  },
   'runner-restart': {
     desc: '실행기를 새 코드로 다시 켜기 (창 없이 백그라운드, 출력 .runner/runner.log)',
     steps: () => [{ cmd: 'node', args: ['scripts/runner/restart.mjs', String(process.pid)] }],

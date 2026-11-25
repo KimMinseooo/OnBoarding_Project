@@ -35,7 +35,7 @@ describe('POST /api/assignments (Mock)', () => {
     expect(res.body.code).toBe('BAD_REQUEST');
   });
 
-  it('Mock이 아니면(5단계 전) 501', async () => {
+  it('생성기가 없으면 501', async () => {
     const res = await request(createApp(config, { generate: null })).post('/api/assignments').send({ framework: 'wpf', level: 'basic' });
     expect(res.status).toBe(501);
   });
