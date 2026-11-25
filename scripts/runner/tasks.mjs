@@ -63,6 +63,10 @@ export const TASKS = {
       { get: 'http://localhost:5173/' },
     ],
   },
+  'runner-restart': {
+    desc: '실행기를 새 코드로 다시 켜기 (창 없이 백그라운드, 출력 .runner/runner.log)',
+    steps: () => [{ cmd: 'node', args: ['scripts/runner/restart.mjs', String(process.pid)] }],
+  },
   'git-status': { desc: 'Git 상태', steps: () => [git('status', '--short', '--branch')] },
   'git-log': { desc: '최근 커밋 15개', steps: () => [git('log', '--oneline', '-15')] },
   'git-diff': { desc: '변경 파일 요약', steps: () => [git('diff', '--stat'), git('diff', '--cached', '--stat')] },
